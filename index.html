@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1115">
-<title>FERROCONTROL</title>
+<title>FERRETERÍA</title>
 <style>
 :root{--bg:#0f1115;--card:#181b22;--card2:#20242d;--tx:#e8eaf0;--mut:#8b93a5;--ac:#f5a524;--ok:#2ecc71;--bad:#ff5d5d;--bd:#2b303b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--tx);font:15px system-ui,Segoe UI,Roboto,sans-serif}
@@ -39,8 +39,8 @@ img.th{width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer}
 </head>
 <body>
 <div id="ld"></div>
-<div id="lg"><div class="card"><h3 style="color:var(--ac);font-size:22px;text-align:center">FERROCONTROL</h3><div class="mut" style="text-align:center">Ingresa para continuar</div><label>Usuario</label><input id="lu" autocapitalize="none" autocomplete="username"><label>Contraseña</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><div id="le" style="color:var(--bad);margin-top:8px;min-height:18px"></div><button class="pri" style="margin-top:6px" onclick="login()">INGRESAR</button></div></div>
-<header><b>FERROCONTROL</b><span><span class="mut" id="hoy"></span> <button class="sm" onclick="logout()">Salir</button></span></header>
+<div id="lg"><div class="card"><h3 style="color:var(--ac);font-size:22px;text-align:center">FERRETERÍA</h3><div class="mut" style="text-align:center">Ingresa para continuar</div><label>Usuario</label><input id="lu" autocapitalize="none" autocomplete="username"><label>Contraseña</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><div id="le" style="color:var(--bad);margin-top:8px;min-height:18px"></div><button class="pri" style="margin-top:6px" onclick="login()">INGRESAR</button></div></div>
+<header><b>FERRETERÍA</b><span><span class="mut" id="hoy"></span> <button class="sm" onclick="logout()">Salir</button></span></header>
 <nav id="nav"></nav>
 <main id="v"></main>
 <div class="msg" id="msg"></div>
@@ -194,11 +194,11 @@ const KL=[['Ventas cobradas','cob','Dinero que ya entró por ventas (no incluye 
 const estC=x=>x.anu?'ANULADO: '+x.anu.m:'VÁLIDO';
 const cobT=x=>x.est=='Fiado'?(x.cob?'Fiado · ya cobrado':'POR COBRAR'):'Pagado';
 const exT=a=>!a.h?'Sin horas extra':a.pag?'Pagado':'Pendiente de pago';
-const empT=()=>(D.emp||'FERROCONTROL')+(D.ruc?' · RUC '+D.ruc:'');
+const empT=()=>(D.emp||'FERRETERÍA')+(D.ruc?' · RUC '+D.ruc:'');
 const dlb=(n,blob)=>{const l=document.createElement('a');l.href=URL.createObjectURL(blob);l.download=n;l.click()};
 async function excel(){if(typeof ExcelJS=='undefined')throw new Error('No cargó la librería de Excel. Revisa tu internet y recarga.');
  const d=datos(),k=kp(d),wb=new ExcelJS.Workbook(),MON='"S/ "#,##0.00',FEC='dd/mm/yyyy',dt=f=>new Date(f+'T12:00:00'),L={style:'thin',color:{argb:'FFBBBBBB'}},B={top:L,bottom:L,left:L,right:L},
- fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),per='Periodo: del '+fd(d.a)+' al '+fd(d.b);wb.creator='FERROCONTROL';
+ fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),per='Periodo: del '+fd(d.a)+' al '+fd(d.b);wb.creator='FERRETERÍA';
  const base=(n,w)=>{const ws=wb.addWorksheet(n,{pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0}});ws.columns=w.map(x=>({width:x}));return ws};
  const cab=(ws,n,tit,exp)=>{ws.mergeCells(1,1,1,n);const t=ws.getCell(1,1);t.value=tit+' — '+empT();t.font={bold:true,size:16};ws.mergeCells(2,1,2,n);const e=ws.getCell(2,1);e.value=exp+'  ('+per+')';e.font={italic:true,size:11,color:{argb:'FF444444'}};e.alignment={wrapText:true,vertical:'top'};ws.getRow(2).height=48};
  const hoja=(n,tit,exp,cols,rows)=>{const ws=base(n,cols.map(c=>c.w));cab(ws,cols.length,tit,exp);const h=ws.getRow(4);h.height=34;
@@ -223,7 +223,7 @@ async function excel(){if(typeof ExcelJS=='undefined')throw new Error('No cargó
   D.chof.map(c=>{const r=d.A.filter(x=>x.c==c),p=t=>sum(d.PG.filter(x=>x.c==c&&x.t==t&&!x.anu),x=>x.mon);return{c,dias:r.length,ht:sum(r,hrs),he:sum(r,x=>x.h),su:p('Sueldo'),ad:p('Adelanto'),ep:p('Horas extra'),pen:sum(r.filter(x=>!x.pag),x=>x.h)*D.hext}}));
  const an=[...d.V.map(x=>({t:'Venta',f:x.f,d:x.mat+' x'+x.q,m:x.tot,an:x.anu})),...d.G.map(x=>({t:'Gasolina',f:x.f,d:x.m+' · '+x.c,m:x.mon,an:x.anu})),...d.M.map(x=>({t:'Mantenimiento',f:x.f,d:x.m+' · '+x.d,m:x.mon,an:x.anu})),...d.PG.map(x=>({t:'Pago '+x.t,f:x.f,d:x.c,m:x.mon,an:x.anu}))].filter(x=>x.an);
  hoja('Anulaciones','REGISTROS ANULADOS',' ',[{h:'Tipo',w:18,k:r=>r.t},{h:'Fecha del registro',w:16,k:r=>dt(r.f),f:FEC},{h:'Detalle',w:36,k:r=>r.d},{h:'Monto anulado',w:16,k:r=>r.m,f:MON,s:r=>r.m},{h:'Motivo',w:34,k:r=>r.an.m},{h:'Anulado el',w:18,k:r=>r.an.t.slice(0,16).replace('T',' ')}],an);
- const buf=await wb.xlsx.writeBuffer();dlb(`FERROCONTROL_${d.a}_a_${d.b}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));toast('Excel descargado')}
+ const buf=await wb.xlsx.writeBuffer();dlb(`FERRETERÍA_${d.a}_a_${d.b}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));toast('Excel descargado')}
 const fotoURL=async id=>{try{const r=await fetch('/api?a=foto&id='+id);if(!r.ok)return'';const b=await r.blob();return await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)})}catch(e){return''}};
 async function pdf(){const w=window.open('','_blank');if(!w)return toast('Permite las ventanas emergentes para ver el reporte',1);
  w.document.write('<body style="font:18px sans-serif;padding:30px">Preparando el reporte con fotos… no cierres esta ventana.</body>');
@@ -240,7 +240,7 @@ async function pdf(){const w=window.open('','_blank');if(!w)return toast('Permit
 <h2>4. Mantenimiento (con foto del comprobante)</h2>${d.M.map(x=>fi(x,fd(x.f)+' · '+S(x.mon),[['Máquina',E(x.m)],['Tipo',E(x.t)],['Trabajo',E(x.d)],['Proveedor/comprobante',E(x.p||'-')]])).join('')||'<p>Sin registros</p>'}${tl(d.M,x=>x.mon)}
 <h2>5. Asistencia y horas extra</h2>${t(['Fecha','Trabajador','Entrada','Salida','Horas trab.','H. extra','Pago extra','Estado extra'],d.A.map(x=>rw(x,[fd(x.f),E(x.c),x.e,x.s||'-',hrs(x).toFixed(2),x.h,S(x.h*D.hext),exT(x)])))}
 <h2>6. Pagos al personal</h2>${t(['Fecha','Trabajador','Tipo','Periodo','Monto','Método','Constancia','Nota','Estado'],d.PG.map(x=>rw(x,[fd(x.f),E(x.c),x.t,x.per||'',S(x.mon),E(x.met||''),E(x.n||''),E(x.nota||''),E(x.anu?'ANULADO: '+x.anu.m:'VÁLIDO')])))}${tl(d.PG,x=>x.mon)}
-<p style="margin-top:20px;color:#555">Documento generado por FERROCONTROL. Los registros no se pueden borrar: solo se anulan con motivo y quedan en la auditoría del sistema.</p>
+<p style="margin-top:20px;color:#555">Documento generado por FERRETERÍA. Los registros no se pueden borrar: solo se anulan con motivo y quedan en la auditoría del sistema.</p>
 <div class="fm"><div>______________________<br>Firma del administrador</div><div>______________________<br>V°B° Contador</div></div>
 <script>addEventListener('load',()=>setTimeout(print,500))<\/script></body></html>`;
  w.document.open();w.document.write(html);w.document.close()}catch(e){w.close();throw e}}
