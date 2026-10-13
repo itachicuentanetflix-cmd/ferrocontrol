@@ -1,7 +1,8 @@
 const { neon } = require('@neondatabase/serverless');
 const crypto = require('crypto');
 
-const sql = neon(process.env.DATABASE_URL);
+let _sql;
+const sql = (...a) => (_sql = _sql || neon(process.env.DATABASE_URL))(...a); // se crea al usarse, para que un error salga como mensaje y no tumbe la función
 const SEC = process.env.SESSION_SECRET || '';
 const dig = s => crypto.createHash('sha256').update(String(s)).digest();
 const sign = t => crypto.createHmac('sha256', SEC).update(t).digest('hex');
