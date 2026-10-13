@@ -38,9 +38,11 @@ module.exports = async (req, res) => {
     const b = req.body || {};
 
     if (b.a === 'login') {
-      const okU = crypto.timingSafeEqual(dig(String(b.u || '').trim().toLowerCase()), dig(String(process.env.ADMIN_USER || '').toLowerCase()));
-      const okP = crypto.timingSafeEqual(dig(b.p || ''), dig(process.env.ADMIN_PASS || ''));
-      if (!(okU && okP && SEC && process.env.ADMIN_PASS)) {
+      const AU = (process.env.ADMIN_USER || '').trim(), AP = (process.env.ADMIN_PASS || '').trim();
+      if (!AU || !AP || !SEC) return bad(res, 'Faltan variables en Vercel: ' + [!AU && 'ADMIN_USER', !AP && 'ADMIN_PASS', !SEC && 'SESSION_SECRET'].filter(Boolean).join(', ') + '. Agrégalas y haz Redeploy.', 500);
+      const okU = crypto.timingSafeEqual(dig(String(b.u || '').trim().toLowerCase()), dig(AU.toLowerCase()));
+      const okP = crypto.timingSafeEqual(dig(b.p || ''), dig(AP));
+      if (!(okU && okP)) {
         await new Promise(r => setTimeout(r, 900));
         return bad(res, 'Usuario o contraseña incorrectos', 401);
       }
