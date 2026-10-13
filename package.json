@@ -1,0 +1,6 @@
+{
+  "name": "ferrocontrol",
+  "private": true,
+  "version": "2.0.0",
+  "dependencies": { "@neondatabase/serverless": "^0.10.4" }
+}
