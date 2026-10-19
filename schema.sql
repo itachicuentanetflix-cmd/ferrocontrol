@@ -1,19 +1,36 @@
 -- FERROCONTROL · pega TODO esto en Neon > SQL Editor > Run
+-- Se puede ejecutar las veces que quieras: no borra ni duplica nada.
+
 create table if not exists config (
   k text primary key,
   v jsonb not null
 );
 
--- Todos los movimientos: ventas, gasolina, mantenimiento, asistencia y pagos
+-- Todos los movimientos: ventas, alquileres, cobros, gasolina, mantenimiento, policía, comidas, asistencia y pagos
 create table if not exists registros (
   id text primary key,
-  tipo text not null check (tipo in ('ventas','gas','mant','asis','pagos')),
+  tipo text not null,
   f date not null,                       -- fecha del movimiento (hora de Lima)
   data jsonb not null,                   -- detalle del movimiento
   anu jsonb,                             -- si fue anulado: motivo y fecha
   creado timestamptz not null default now()
 );
 create index if not exists registros_tipo_f on registros (tipo, f);
+
+-- IMPORTANTE: la versión anterior solo permitía 5 tipos y la base rechazaba
+-- alquileres, cobros, policía y comidas. Esto reemplaza esa regla por la correcta.
+do $$
+declare c record;
+begin
+  for c in select conname from pg_constraint
+           where conrelid = 'registros'::regclass and contype = 'c'
+             and pg_get_constraintdef(oid) ilike '%tipo%'
+  loop
+    execute format('alter table registros drop constraint %I', c.conname);
+  end loop;
+  alter table registros add constraint registros_tipo_check
+    check (tipo in ('ventas','alq','abo','gas','mant','poli','com','asis','pagos'));
+end $$;
 
 -- Fotos de recibos (gasolina y mantenimiento)
 create table if not exists fotos (
