@@ -1,13 +1,16 @@
 const { neon } = require('@neondatabase/serverless');
 const crypto = require('crypto');
 
-let _sql;
-const sql = (...a) => (_sql = _sql || neon(process.env.DATABASE_URL))(...a); // se crea al usarse, para que un error salga como mensaje y no tumbe la función
+let _db;
+const db = () => (_db = _db || neon(process.env.DATABASE_URL)); // se crea al usarse, para que un error salga como mensaje y no tumbe la función
+const sql = (...a) => db()(...a);
 const SEC = process.env.SESSION_SECRET || '';
 const dig = s => crypto.createHash('sha256').update(String(s)).digest();
 const sign = t => crypto.createHmac('sha256', SEC).update(t).digest('hex');
 const uid = () => crypto.randomBytes(6).toString('hex');
-const LIMA = `to_char(now() at time zone 'America/Lima','YYYY-MM-DD')`;
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const scrypt = (p, salt) => new Promise((ok, no) => crypto.scrypt(String(p), salt, 32, (e, k) => (e ? no(e) : ok(k))));
+const eq = (a, b) => a.length === b.length && crypto.timingSafeEqual(a, b);
 
 // campos que se pueden modificar después de creado un registro
 const ALLOW = { ventas: ['cob', 'est'], alq: ['cob', 'est'], asis: ['e', 's', 'h', 'pag', 'd', 'a'], gas: [], mant: [], pagos: [], poli: [], com: [], abo: [] };
@@ -17,11 +20,23 @@ function autenticado(req) {
   if (!m || !SEC) return false;
   const [e, g] = m[1].split('.');
   if (!e || !g || Date.now() > +e) return false;
-  const a = Buffer.from(sign(e)), b = Buffer.from(g);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  return eq(Buffer.from(sign(e)), Buffer.from(g));
 }
 const aud = accion => sql`insert into auditoria(accion) values(${accion})`;
 const bad = (res, e, c = 400) => res.status(c).json({ e });
+
+// ---- credenciales: si existen en la base (config 'auth') mandan; si no, se usan ADMIN_USER / ADMIN_PASS de Vercel
+const envU = () => (process.env.ADMIN_USER || '').trim();
+const envP = () => (process.env.ADMIN_PASS || '').trim();
+async function getAuth() {
+  const r = await sql`select v from config where k='auth'`;
+  return r.length ? r[0].v : null;
+}
+async function passOk(p, a) {
+  p = String(p || '');
+  if (a) return eq(await scrypt(p, Buffer.from(a.s, 'hex')), Buffer.from(a.h, 'hex'));
+  return !!envP() && eq(dig(p), dig(envP()));
+}
 
 module.exports = async (req, res) => {
   try {
@@ -38,12 +53,13 @@ module.exports = async (req, res) => {
     const b = req.body || {};
 
     if (b.a === 'login') {
-      const AU = (process.env.ADMIN_USER || '').trim(), AP = (process.env.ADMIN_PASS || '').trim();
-      if (!AU || !AP || !SEC) return bad(res, 'Faltan variables en Vercel: ' + [!AU && 'ADMIN_USER', !AP && 'ADMIN_PASS', !SEC && 'SESSION_SECRET'].filter(Boolean).join(', ') + '. Agrégalas y haz Redeploy.', 500);
-      const okU = crypto.timingSafeEqual(dig(String(b.u || '').trim().toLowerCase()), dig(AU.toLowerCase()));
-      const okP = crypto.timingSafeEqual(dig(b.p || ''), dig(AP));
+      const a = await getAuth();
+      if (!SEC || (!a && (!envU() || !envP()))) return bad(res, 'Faltan variables en Vercel: ' + [!SEC && 'SESSION_SECRET', !a && !envU() && 'ADMIN_USER', !a && !envP() && 'ADMIN_PASS'].filter(Boolean).join(', ') + '. Agrégalas y haz Redeploy.', 500);
+      const u = String(b.u || '').trim().toLowerCase();
+      const okU = eq(dig(u), dig(String(a ? a.u : envU()).toLowerCase()));
+      const okP = await passOk(b.p, a);
       if (!(okU && okP)) {
-        await new Promise(r => setTimeout(r, 900));
+        await wait(900);
         return bad(res, 'Usuario o contraseña incorrectos', 401);
       }
       const e = String(Date.now() + 12 * 3600e3);
@@ -58,13 +74,34 @@ module.exports = async (req, res) => {
     if (!autenticado(req)) return bad(res, 'auth', 401);
 
     if (b.a === 'all') {
-      const [c, r, l, t] = await Promise.all([
-        sql`select k, v from config`,
+      const [c, r, l, t, a] = await Promise.all([
+        sql`select k, v from config where k <> 'auth'`, // la clave/usuario nunca viajan al navegador
         sql`select id, tipo, f::text as f, data, anu from registros order by creado`,
         sql`select to_char(t at time zone 'America/Lima','YYYY-MM-DD HH24:MI') as t, accion from auditoria order by id desc limit 40`,
-        sql`select to_char(now() at time zone 'America/Lima','YYYY-MM-DD') as f`
+        sql`select to_char(now() at time zone 'America/Lima','YYYY-MM-DD') as f`,
+        getAuth()
       ]);
-      return res.json({ cfg: Object.fromEntries(c.map(x => [x.k, x.v])), regs: r, log: l, hoy: t[0].f });
+      return res.json({ cfg: Object.fromEntries(c.map(x => [x.k, x.v])), regs: r, log: l, hoy: t[0].f, usr: a ? a.u : envU() });
+    }
+
+    // Cambiar usuario y/o contraseña desde dentro del sistema
+    if (b.a === 'cred') {
+      const nu = String(b.nu || '').trim(), np = String(b.np || '');
+      if (!nu && !np) return bad(res, 'No hay nada que cambiar');
+      if (nu && nu.length < 3) return bad(res, 'El usuario debe tener al menos 3 caracteres');
+      if (np && np.length < 6) return bad(res, 'La contraseña debe tener al menos 6 caracteres');
+      const a = await getAuth();
+      if (!(await passOk(b.p, a))) {
+        await wait(900);
+        return bad(res, 'La contraseña actual no es correcta', 403);
+      }
+      const salt = (!np && a) ? Buffer.from(a.s, 'hex') : crypto.randomBytes(16);
+      const hash = (!np && a) ? Buffer.from(a.h, 'hex') : await scrypt(np || b.p, salt);
+      const nuevo = { u: nu || (a ? a.u : envU()), s: salt.toString('hex'), h: hash.toString('hex') };
+      await sql`insert into config(k,v) values('auth', ${JSON.stringify(nuevo)}::jsonb)
+                on conflict (k) do update set v = excluded.v`;
+      await aud('Cambio de ' + [nu && 'usuario', np && 'contraseña'].filter(Boolean).join(' y '));
+      return res.json({ ok: 1 });
     }
 
     if (b.a === 'cfg') {
@@ -79,12 +116,33 @@ module.exports = async (req, res) => {
       return res.json({ ok: 1 });
     }
 
+    // Petróleo para varios vehículos a la vez: una sola foto, todo o nada (transacción)
+    if (b.a === 'gasmulti') {
+      const L = Array.isArray(b.recs) ? b.recs : [], img = b.img;
+      if (!L.length || L.length > 30) return bad(res, 'Elige al menos un vehículo');
+      if (!img || img.length > 900000) return bad(res, 'La foto del recibo es obligatoria');
+      const [{ f: hoy }] = await sql`select to_char(now() at time zone 'America/Lima','YYYY-MM-DD') as f`;
+      const fecha = /^\d{4}-\d\d-\d\d$/.test(b.f || '') ? b.f : hoy;
+      const q = db(), ids = [], items = [];
+      for (const r of L) {
+        const d = { c: String(r.c || ''), m: String(r.m || ''), mon: +r.mon, gal: +r.gal || 0, n: String(r.n || ''), foto: 1 };
+        if (!d.m) return bad(res, 'Falta el vehículo');
+        if (!(d.mon > 0)) return bad(res, 'Monto inválido');
+        const id = uid(); ids.push(id);
+        items.push(q`insert into registros(id,tipo,f,data) values(${id}, 'gas', ${fecha}, ${JSON.stringify(d)}::jsonb)`);
+        items.push(q`insert into fotos(id,img) values(${id}, ${img})`);
+      }
+      items.push(q`insert into auditoria(accion) values(${'Alta gas (' + ids.length + ' vehículos) ' + ids.join(',')})`);
+      await q.transaction(items);
+      return res.json({ ids });
+    }
+
     if (b.a === 'add') {
       const t = b.tipo;
       if (!Object.prototype.hasOwnProperty.call(ALLOW, t)) return bad(res, 'Tipo inválido');
       const d = { ...(b.rec || {}) };
       const img = d.img; delete d.img; delete d.id; delete d.anu;
-      const [{ f: hoy, h }] = await sql`select to_char(now() at time zone 'America/Lima','YYYY-MM-DD') as f, to_char(now() at time zone 'America/Lima','HH24:MI') as h`;
+      const [{ f: hoy, h }] = await sql`select to_char(now() at time zone 'America/Lima','YYYY-MM-DD') as f, to_char(now() at time zone 'America/Lima','HH24:MI:SS') as h`;
       let fecha = hoy;
       if (['gas', 'mant', 'poli', 'com'].includes(t) && /^\d{4}-\d\d-\d\d$/.test(d.f || '')) fecha = d.f;
       if (t === 'gas' || t === 'mant') {
