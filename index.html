@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1115">
-<title>FERRETERÍA</title>
+<title>Finca Chate</title>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 :root{--bg:#0f1115;--card:#181b22;--card2:#20242d;--tx:#e8eaf0;--mut:#8b93a5;--ac:#f5a524;--ok:#2ecc71;--bad:#ff5d5d;--bd:#2b303b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--tx);font:15px system-ui,Segoe UI,Roboto,sans-serif}
@@ -20,6 +21,7 @@ input,select{width:100%;background:var(--card2);color:var(--tx);border:1px solid
 button{background:var(--card2);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;font-size:15px;cursor:pointer}
 button.on,nav button.on{background:var(--ac);color:#111;border-color:var(--ac);font-weight:700}
 button.pri{background:var(--ac);color:#111;font-weight:700;width:100%;margin-top:14px;padding:14px}
+button.sec{background:var(--card2);color:var(--tx);border:1px solid var(--ac);width:100%;margin-top:10px;padding:14px;font-weight:700}
 button.sm{padding:6px 10px;font-size:12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
 .row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
@@ -34,13 +36,16 @@ img.th{width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer}
 #cam{position:fixed;inset:0;background:#000;z-index:20;display:none;flex-direction:column}#cam video{flex:1;min-height:0;width:100%;object-fit:cover}
 #lg{position:fixed;inset:0;background:var(--bg);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}#lg .card{width:100%;max-width:360px}
 #ld{position:fixed;top:0;left:0;right:0;height:3px;background:var(--ac);display:none;z-index:100}
+.bars{display:flex;align-items:flex-end;gap:2px;height:150px;border-bottom:1px solid var(--bd)}.bars div{flex:1;background:var(--ac);border-radius:3px 3px 0 0;min-height:2px}
+.bl{display:flex;gap:2px}.bl span{flex:1;text-align:center;font-size:9px;color:var(--mut)}
+.hb{margin:8px 0}.hb .t{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px}.hb .b{height:14px;background:var(--card2);border-radius:7px;overflow:hidden}.hb .b i{display:block;height:100%;border-radius:7px}
+.red{color:var(--bad);font-weight:700}.org{color:var(--ac);font-weight:700}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
 <body>
 <div id="ld"></div>
-<div id="lg"><div class="card"><h3 style="color:var(--ac);font-size:22px;text-align:center">FERRETERÍA</h3><div class="mut" style="text-align:center">Ingresa para continuar</div><label>Usuario</label><input id="lu" autocapitalize="none" autocomplete="username"><label>Contraseña</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><div id="le" style="color:var(--bad);margin-top:8px;min-height:18px"></div><button class="pri" style="margin-top:6px" onclick="login()">INGRESAR</button></div></div>
-<header><b>FERRETERÍA</b><span><span class="mut" id="hoy"></span> <button class="sm" onclick="logout()">Salir</button></span></header>
+<div id="lg"><div class="card"><h3 style="color:var(--ac);font-size:22px;text-align:center">FINCA CHATE</h3><div class="mut" style="text-align:center">Ingresa para continuar</div><label>Usuario</label><input id="lu" autocapitalize="none" autocomplete="username"><label>Contraseña</label><input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><div id="le" style="color:var(--bad);margin-top:8px;min-height:18px"></div><button class="pri" style="margin-top:6px" onclick="login()">INGRESAR</button></div></div>
+<header><b id="br">FINCA CHATE</b><span><span class="mut" id="hoy"></span> <button class="sm" onclick="logout()">Salir</button></span></header>
 <nav id="nav"></nav>
 <main id="v"></main>
 <div class="msg" id="msg"></div>
@@ -48,83 +53,128 @@ img.th{width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer}
 <script>
 const $=s=>document.querySelector(s);
 const E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const def={mats:[{n:'Arena fina',p:150},{n:'Arena gruesa',p:150},{n:'Tierra',p:100},{n:'Piedra chancada',p:200},{n:'Hormigón',p:180},{n:'Afirmado',p:120},{n:'Confitillo',p:160},{n:'Over',p:110}],chof:['Chofer 1','Chofer 2','Chofer 3','Chofer 4'],sue:[0,0,0,0],hext:10,jor:8,emp:'',ruc:'',maq:['Volquete 1','Volquete 2','Volquete 3','Volquete 4','Cargador']};
-let D={...JSON.parse(JSON.stringify(def)),ventas:[],gas:[],mant:[],asis:[],pagos:[],log:[]},HOY='',F=null,busy=0,CK,CS;
-const lh=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const def={v:2,emp:'FINCA CHATE',ruc:'',
+mats:[['Arena gruesa',400,50],['Afirmado',350,45],['Piedra de 1/2',450,60],['Piedra 6/7',480,60],['Arena fina',480,60],['Piedra de sanja',450,45],['Tierra de chacra',0,80],['Hormigón',350,40],['Confitillo',500,60],['Piedra 3/4',400,50]].map(([n,pc,pq])=>({n,pc,pq})),
+alq:[{n:'Cargador frontal',p:120},{n:'Excavadora',p:200},{n:'Retroexcavadora',p:110}],
+chof:['Chofer 1','Chofer 2','Chofer 3','Chofer 4'],sue:[0,0,0,0],hext:10,jor:8,pd:0,pa:0,
+maq:['Volquete 1','Volquete 2','Volquete 3','Burrito','Retroexcavadora']};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const TIPOS=['ventas','alq','abo','gas','mant','poli','asis','pagos'];
+let D={...clone(def)},HOY='',F=null,busy=0,CK,CS;TIPOS.forEach(t=>D[t]=[]);D.log=[];
 const now=()=>new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',hour12:false});
 const S=n=>'S/ '+(+n||0).toFixed(2);
 const sum=(a,f)=>a.reduce((s,x)=>s+f(x),0);
 const opts=a=>a.map(x=>`<option>${E(x)}</option>`).join('');
-const hrs=a=>wk(a.e,a.s);
 function wk(e,s){if(!e||!s)return 0;const[a,b]=e.split(':'),[c,d]=s.split(':');let m=(c*60+ +d)-(a*60+ +b);if(m<0)m+=1440;return m/60}
-const toast=(t,bad)=>{const m=$('#msg');m.textContent=t;m.style.background=bad?'var(--bad)':'var(--ok)';m.style.display='block';clearTimeout(m.t);m.t=setTimeout(()=>m.style.display='none',2200)};
+const hrs=a=>wk(a.e,a.s);
+const fd=f=>f?f.split('-').reverse().join('/'):'';
+const dias=f=>Math.max(0,Math.round((new Date(HOY+'T12:00:00')-new Date(f+'T12:00:00'))/864e5));
+const toast=(t,bad)=>{const m=$('#msg');m.textContent=t;m.style.background=bad?'var(--bad)':'var(--ok)';m.style.display='block';clearTimeout(m.t);m.t=setTimeout(()=>m.style.display='none',2400)};
 async function api(a,x={}){const r=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({a,...x})});const j=await r.json().catch(()=>({}));
  if(r.status==401&&a!='login'){showLogin();throw new Error('auth')}if(!r.ok)throw new Error(j.e||'Error');return j}
 async function act(fn){if(busy)return;busy=1;$('#ld').style.display='block';try{await fn()}catch(e){if(e.message!='auth')toast(e.message,1)}finally{busy=0;$('#ld').style.display='none'}}
-async function load(){const j=await api('all');const c=Object.assign(JSON.parse(JSON.stringify(def)),(j.cfg||{}).cfg||{});Object.assign(D,c,{ventas:[],gas:[],mant:[],asis:[],pagos:[],log:j.log});
- j.regs.forEach(r=>D[r.tipo].push({...r.data,id:r.id,f:r.f,anu:r.anu}));HOY=j.hoy;
- if(!F){const m=HOY.slice(0,7);F={ventas:{m:'d',v:HOY},gas:{m:'m',v:m},mant:{m:'m',v:m},hist:{m:'m',v:m},pag:{m:'m',v:m}}}
- $('#lg').style.display='none';render()}
+const cfgObj=()=>({v:2,emp:D.emp,ruc:D.ruc,mats:D.mats,alq:D.alq,chof:D.chof,sue:D.sue,hext:D.hext,jor:D.jor,pd:D.pd,pa:D.pa,maq:D.maq});
+async function load(){const j=await api('all'),sc=(j.cfg||{}).cfg||{},c=Object.assign(clone(def),sc);let mig=false;
+ if(!(sc.v>=2)){c.mats=clone(def.mats);c.maq=clone(def.maq);c.alq=clone(def.alq);c.emp=sc.emp||def.emp;c.v=2;mig=true}
+ while(c.sue.length<c.chof.length)c.sue.push(0);
+ Object.assign(D,c,{log:j.log});TIPOS.forEach(t=>D[t]=[]);
+ j.regs.forEach(r=>{if(D[r.tipo])D[r.tipo].push({...r.data,id:r.id,f:r.f,anu:r.anu})});HOY=j.hoy;
+ if(!F){const m=HOY.slice(0,7);F={ventas:{m:'d',v:HOY},alq:{m:'m',v:m},gas:{m:'m',v:m},mant:{m:'m',v:m},poli:{m:'m',v:m},hist:{m:'m',v:m},pag:{m:'m',v:m},graf:{m:'m',v:m}}}
+ if(mig)await api('cfg',{cfg:cfgObj()});$('#lg').style.display='none';render()}
 function showLogin(){$('#lg').style.display='flex'}
 async function login(){await act(async()=>{$('#le').textContent='';try{await api('login',{u:$('#lu').value,p:$('#lp').value})}catch(e){$('#le').textContent=e.message;return}$('#lp').value='';await load()})}
 async function logout(){try{await api('logout')}catch(e){}showLogin()}
-const cfgObj=()=>({mats:D.mats,chof:D.chof,sue:D.sue,hext:D.hext,jor:D.jor,maq:D.maq,emp:D.emp,ruc:D.ruc});
 const save=()=>act(async()=>{await api('cfg',{cfg:cfgObj()});toast('Guardado')});
 const add=async(tipo,rec)=>{const r=await api('add',{tipo,rec});await load();return r};
 const upd=async(id,patch)=>{await api('upd',{id,patch})};
-// filtros día / mes / año
-const flt=k=>{const f=F[k],i=f.m=='d'?`<input type="date" value="${f.v}" onchange="F.${k}.v=this.value;render()">`:f.m=='m'?`<input type="month" value="${f.v}" onchange="F.${k}.v=this.value;render()">`:`<input type="number" value="${f.v}" onchange="F.${k}.v=this.value;render()">`;
- return `<div class="row">${[['d','Por día'],['m','Por mes'],['a','Por año']].map(([m,l])=>`<button class="sm ${f.m==m?'on':''}" onclick="fm('${k}','${m}')">${l}</button>`).join('')}</div><div style="margin-top:6px">${i}</div>`};
+// ---- deudas y cobros
+const hasAbo=x=>D.abo.some(a=>a.ref==x.id&&!a.anu);
+const cobDirect=x=>x.est!='Fiado'||(x.cob&&!hasAbo(x));
+const saldo=x=>x.anu||x.est!='Fiado'||x.cob?0:Math.max(0,x.tot-sum(D.abo.filter(a=>a.ref==x.id&&!a.anu),a=>a.mon));
+const cash=()=>[...D.ventas,...D.alq].filter(x=>!x.anu&&cobDirect(x)).map(x=>({f:x.f,m:x.tot})).concat(D.abo.filter(a=>!a.anu).map(a=>({f:a.f,m:a.mon})));
+const cant=x=>x.mod=='cubico'?x.q+' cúbicos':x.q+(x.q==1?' camión':' camiones');
+const deudas=()=>[...D.ventas.map(x=>({...x,tp:'ventas'})),...D.alq.map(x=>({...x,tp:'alq'}))].filter(x=>saldo(x)>0).map(x=>({id:x.id,tp:x.tp,f:x.f,cli:x.cli||'(sin nombre)',det:x.tp=='ventas'?x.mat+' · '+cant(x):x.maq+' · '+x.hr+' h',tot:x.tot,ab:x.tot-saldo(x),sal:saldo(x),dias:dias(x.f)})).sort((a,b)=>b.dias-a.dias);
+const diasC=n=>`<span class="${n>30?'red':n>15?'org':''}">${n} días</span>`;
+// ---- filtros día/mes/año
+const flt=(k,modes=['d','m','a'])=>{const f=F[k],i=f.m=='d'?`<input type="date" value="${f.v}" onchange="F.${k}.v=this.value;render()">`:f.m=='m'?`<input type="month" value="${f.v}" onchange="F.${k}.v=this.value;render()">`:`<input type="number" value="${f.v}" onchange="F.${k}.v=this.value;render()">`,N={d:'Por día',m:'Por mes',a:'Por año'};
+ return `<div class="row">${modes.map(m=>`<button class="sm ${f.m==m?'on':''}" onclick="fm('${k}','${m}')">${N[m]}</button>`).join('')}</div><div style="margin-top:6px">${i}</div>`};
 const fm=(k,m)=>{F[k]={m,v:HOY.slice(0,m=='d'?10:m=='m'?7:4)};render()};
 const fr=(k,a)=>a.filter(x=>x.f.startsWith(F[k].v)).reverse();
 const tt=a=>`<div class="mut" style="margin:8px 0">${a.filter(x=>!x.anu).length} registros · Total: <b style="color:var(--ac)">${S(sum(a.filter(x=>!x.anu),x=>x.tot??x.mon??0))}</b></div>`;
-let tab='inicio',st={mat:0,q:1,chof:0,precio:null,est:'Pagado'},ms='',P={},pg={i:0,t:'Sueldo'};
-const tabs=[['inicio','Inicio'],['venta','Nueva venta'],['gas','Gasolina'],['mant','Mantenimiento'],['asis','Asistencia'],['hist','Registro asistencia'],['pag','Pagos personal'],['rep','Reportes'],['aj','Ajustes']];
-function render(){$('#nav').innerHTML=tabs.map(([k,l])=>`<button class="${k==tab?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('');
+// ---- estado de pantallas
+let tab='inicio',ms='',P={},pg={i:0,t:'Sueldo'},av='hoy',cb=null,mtt='Cambio de aceite';
+let st={mod:'camion',mat:0,q:1,precio:null,chof:0,est:'Pagado',dest:'Casa'},al={i:0,h:1,precio:null,chof:0,est:'Pagado'},pl={con:'Vigilancia (cuando viene)',mon:0,pol:'',nota:'',f:''};
+const PC=['Vigilancia (cuando viene)','Turno completo','Visita / control','Otro'];
+const MT=['Cambio de aceite','Filtros','Llantas','Frenos','Batería','Engrase','Soldadura','Mecánica general','Lavado','Repuesto','Otro'];
+const tabs=[['inicio','🏠 Inicio'],['venta','🛒 Venta'],['alq','🚜 Alquiler'],['cob','💰 Por cobrar'],['gas','⛽ Petróleo'],['mant','🔧 Mantenimiento'],['poli','👮 Policía'],['asis','🕒 Asistencia'],['pag','👷 Pagos personal'],['graf','📊 Gráficos'],['rep','📄 Reportes'],['aj','⚙ Ajustes']];
+function render(){$('#nav').innerHTML=tabs.map(([k,l])=>`<button class="${k==tab?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('');$('#br').textContent=D.emp||'FINCA CHATE';
  $('#hoy').textContent=new Date().toLocaleDateString('es-PE',{weekday:'short',day:'2-digit',month:'short'});$('#v').innerHTML=V[tab]();
- if(tab=='rep')rep();if(tab=='asis')D.asis.filter(a=>a.f==HOY).forEach(a=>calc(a.id))}
-const mg=()=>{const q=ms.toLowerCase(),r=D.mats.map((x,i)=>[x,i]).filter(([x])=>x.n.toLowerCase().includes(q));return r.length?r.map(([x,i])=>`<button class="${i==st.mat?'on':''}" onclick="st.mat=${i};st.precio=null;render()">${E(x.n)}<br><small>${S(x.p)}</small></button>`).join(''):'<div class="mut">Sin resultados</div>'};
+ if(tab=='rep')rep();if(tab=='asis'&&av=='hoy')D.asis.filter(a=>a.f==HOY).forEach(a=>calc(a.id))}
+const cls=()=>[...new Set([...D.ventas,...D.alq].map(x=>x.cli).filter(Boolean))];
+const clBox=()=>`<label>Cliente</label><input id="cli" list="cls" autocomplete="off"><datalist id="cls">${cls().map(c=>`<option value="${E(c)}">`).join('')}</datalist>`;
+const cobBox=(s,fn)=>`<label>Método de pago</label><select id="met">${opts(['Efectivo','Yape','Plin','Transferencia','Depósito'])}</select><label>Estado del cobro</label><div class="row">${['Pagado','Fiado'].map(e=>`<button class="${s.est==e?'on':''}" onclick="${fn}.est='${e}';render()">${e}</button>`).join('')}</div>`;
+const mg=()=>{const q=ms.toLowerCase(),cam=st.mod=='camion',r=D.mats.map((x,i)=>[x,i]).filter(([x])=>x.n.toLowerCase().includes(q));return r.length?r.map(([x,i])=>{const p=cam?x.pc:x.pq;return `<button class="${i==st.mat?'on':''}" onclick="st.mat=${i};st.precio=null;render()">${E(x.n)}<br><small>${p?S(p):'precio libre'}</small></button>`}).join(''):'<div class="mut">Sin resultados</div>'};
 const foto=k=>`<div class="row"><button type="button" onclick="cam('${k}')">📷 Tomar foto ahora</button><label class="btnl">📱 Cámara del teléfono<input hidden type="file" accept="image/*" capture="environment" onchange="pv('${k}',this)"></label><label class="btnl">🖼 Galería<input hidden type="file" accept="image/*" onchange="pv('${k}',this)"></label></div><div id="${k}p" class="mut" style="margin-top:6px">${P[k]?`<img src="${P[k]}" style="max-width:140px;border-radius:8px"> ✓`:'Sin foto'}</div>`;
+const tg=(id,k,l,on)=>`<button class="sm ${on?'on':''}" id="${k}${id}" onclick="this.classList.toggle('on')">${l}</button>`;
+const on=id=>$('#'+id).classList.contains('on');
 const V={
-inicio(){const vh=D.ventas.filter(v=>v.f==HOY&&!v.anu),mes=HOY.slice(0,7),pres=D.asis.filter(a=>a.f==HOY),falta=D.chof.filter(c=>!pres.find(a=>a.c==c));
-return `<div class="card"><h3>Hoy</h3><div class="kp"><div><small>Ventas de hoy</small><b>${S(sum(vh,v=>v.tot))}</b></div><div><small>Volquetadas hoy</small><b>${sum(vh,v=>v.q)}</b></div><div><small>Gasolina del mes</small><b>${S(sum(D.gas.filter(x=>x.f.startsWith(mes)&&!x.anu),x=>x.mon))}</b></div><div><small>Por cobrar</small><b>${S(sum(D.ventas.filter(v=>v.est=='Fiado'&&!v.cob&&!v.anu),v=>v.tot))}</b></div><div><small>Presentes hoy</small><b>${pres.length}/${D.chof.length}</b></div></div>
+inicio(){const vh=[...D.ventas,...D.alq].filter(v=>v.f==HOY&&!v.anu),mes=HOY.slice(0,7),pres=D.asis.filter(a=>a.f==HOY),falta=D.chof.filter(c=>!pres.find(a=>a.c==c)),dd=deudas();
+return `<div class="card"><h3>Hoy</h3><div class="kp"><div><small>Vendido hoy</small><b>${S(sum(vh,v=>v.tot))}</b></div><div><small>Cobrado hoy</small><b>${S(sum(cash().filter(r=>r.f==HOY),x=>x.m))}</b></div><div><small>Camiones hoy</small><b>${sum(D.ventas.filter(v=>v.f==HOY&&!v.anu&&v.mod!='cubico'),v=>v.q)}</b></div><div><small>Petróleo del mes</small><b>${S(sum(D.gas.filter(x=>x.f.startsWith(mes)&&!x.anu),x=>x.mon))}</b></div><div><small>Por cobrar (total)</small><b>${S(sum(dd,x=>x.sal))}</b></div><div><small>Presentes hoy</small><b>${pres.length}/${D.chof.length}</b></div></div>
 ${falta.length?`<div class="mut" style="margin-top:10px">Sin asistencia hoy: ${falta.map(E).join(', ')}</div>`:''}</div>
-<div class="card"><h3>Accesos rápidos</h3><div class="grid"><button onclick="tab='venta';render()">➕ Nueva venta</button><button onclick="tab='gas';render()">⛽ Gasolina</button><button onclick="tab='asis';render()">🕒 Asistencia</button><button onclick="tab='rep';render()">📊 Reportes</button></div></div>`},
-venta(){const m=D.mats[st.mat]||{n:'-',p:0},pr=st.precio??m.p;
-return `<div class="card"><h3>1. Material</h3><input placeholder="🔍 Buscar material..." value="${E(ms)}" oninput="ms=this.value;$('#mg').innerHTML=mg()" style="margin-bottom:10px"><div class="grid" id="mg">${mg()}</div><div class="mut" style="margin-top:8px">Seleccionado: <b style="color:var(--ac)">${E(m.n)}</b></div></div>
-<div class="card"><h3>2. Volquetadas</h3><div class="grid" style="grid-template-columns:repeat(8,1fr)">${[1,2,3,4,5,6,7,8].map(n=>`<button class="${n==st.q?'on':''}" onclick="st.q=${n};render()">${n}</button>`).join('')}</div>
-<label>Otra cantidad</label><input type="number" min="1" value="${st.q}" oninput="st.q=Math.max(1,+this.value||1);updt()"></div>
-<div class="card"><h3>3. Precio, chofer y cobro</h3><label>Precio por volquetada (editable)</label><input type="number" step="0.01" value="${pr}" oninput="st.precio=+this.value;updt()">
-<label>Chofer</label><select onchange="st.chof=this.selectedIndex">${D.chof.map((c,i)=>`<option ${i==st.chof?'selected':''}>${E(c)}</option>`).join('')}</select>
-<label>Método de pago</label><select id="met">${opts(['Efectivo','Yape','Plin','Transferencia','Depósito'])}</select>
-<label>Estado del cobro</label><div class="row">${['Pagado','Fiado'].map(e=>`<button class="${st.est==e?'on':''}" onclick="st.est='${e}';render()">${e}</button>`).join('')}</div>
-<label>Cliente / RUC / DNI</label><input id="cli"><label>N° comprobante SUNAT (opcional)</label><input id="comp" placeholder="B001-0001">
-<div style="margin-top:12px" class="mut">Total</div><div class="tot" id="tot">${S(pr*st.q)}</div>
-<button class="pri" onclick="act(venta)">REGISTRAR VENTA</button></div>
-<div class="card"><h3>Historial de ventas</h3>${flt('ventas')}${tt(fr('ventas',D.ventas))}${tabla(fr('ventas',D.ventas),'ventas')}</div>
-<div class="card"><h3>Por cobrar (fiados)</h3>${tabla(D.ventas.filter(v=>v.est=='Fiado'&&!v.cob&&!v.anu),'ventas')}</div>`},
-gas(){return `<div class="card"><h3>Registrar gasolina</h3><label>Foto del recibo (obligatoria, queda guardada)</label>${foto('g')}
-<label>Chofer / trabajador</label><select id="gc">${opts(D.chof)}</select><label>Vehículo</label><select id="gm">${opts(D.maq)}</select>
-<div class="row"><div><label>Monto S/</label><input type="number" step="0.01" id="gmon"></div><div><label>Galones</label><input type="number" step="0.01" id="ggal"></div></div>
+${dd.length?`<div class="card"><h3>⚠ Deudas más antiguas</h3><div class="wrap"><table><tr><th>Cliente</th><th>Debe</th><th>Hace</th></tr>${dd.slice(0,5).map(x=>`<tr><td>${E(x.cli)}</td><td>${S(x.sal)}</td><td>${diasC(x.dias)}</td></tr>`).join('')}</table></div><button class="sm" style="margin-top:8px" onclick="tab='cob';render()">Ver todas</button></div>`:''}`},
+venta(){const m=D.mats[st.mat]||{n:'-',pc:0,pq:0},cam=st.mod=='camion',pr=st.precio??(cam?m.pc:m.pq),qs=cam?[1,2,3,4,5,6,7,8]:[5,10,15,20,30,40];
+return `<div class="card"><h3>1. ¿Cómo se vende?</h3><div class="row"><button class="${cam?'on':''}" onclick="sm2('camion')">🚚 Camión de 10 cúbicos<br><small>entrega a casa o ferretería</small></button><button class="${!cam?'on':''}" onclick="sm2('cubico')">📦 Por cúbico<br><small>la ferretería recoge</small></button></div></div>
+<div class="card"><h3>2. Material</h3><input placeholder="🔍 Buscar material..." value="${E(ms)}" oninput="ms=this.value;$('#mg').innerHTML=mg()" style="margin-bottom:10px"><div class="grid" id="mg">${mg()}</div><div class="mut" style="margin-top:8px">Seleccionado: <b style="color:var(--ac)">${E(m.n)}</b></div></div>
+<div class="card"><h3>3. Cantidad (${cam?'camiones':'cúbicos'})</h3><div class="grid" style="grid-template-columns:repeat(${cam?8:6},1fr)">${qs.map(n=>`<button class="${n==st.q?'on':''}" onclick="st.q=${n};render()">${n}</button>`).join('')}</div>
+<label>Otra cantidad</label><input type="number" min="0.5" step="0.5" value="${st.q}" oninput="st.q=Math.max(0.5,+this.value||1);updt()"></div>
+<div class="card"><h3>4. Precio y cliente</h3><label>Precio por ${cam?'camión':'cúbico'} (puedes escribirlo)</label><input type="number" step="0.01" value="${pr||''}" oninput="st.precio=+this.value;updt()">
+${cam?`<label>Destino</label><div class="row">${['Casa','Ferretería','Otro'].map(e=>`<button class="${st.dest==e?'on':''}" onclick="st.dest='${e}';render()">${e}</button>`).join('')}</div><label>Chofer</label><select onchange="st.chof=this.selectedIndex">${D.chof.map((c,i)=>`<option ${i==st.chof?'selected':''}>${E(c)}</option>`).join('')}</select>`:''}
+${clBox()}${cobBox(st,'st')}<label>N° comprobante SUNAT (opcional)</label><input id="comp" placeholder="B001-0001">
+<div style="margin-top:12px" class="mut">Total</div><div class="tot" id="tot">${S((pr||0)*st.q)}</div><button class="pri" onclick="act(venta)">REGISTRAR VENTA</button></div>
+<div class="card"><h3>Historial de ventas</h3>${flt('ventas')}${tt(fr('ventas',D.ventas))}${tabla(fr('ventas',D.ventas),'ventas')}</div>`},
+alq(){const m=D.alq[al.i]||{n:'-',p:0},pr=al.precio??m.p;
+return `<div class="card"><h3>Alquiler de maquinaria</h3><label>Máquina</label><div class="grid">${D.alq.map((x,i)=>`<button class="${i==al.i?'on':''}" onclick="al.i=${i};al.precio=null;render()">${E(x.n)}<br><small>${S(x.p)} / hora</small></button>`).join('')}</div>
+<label>Horas</label><div class="grid" style="grid-template-columns:repeat(8,1fr)">${[1,2,3,4,5,6,7,8].map(n=>`<button class="${n==al.h?'on':''}" onclick="al.h=${n};render()">${n}</button>`).join('')}</div>
+<label>Otras horas</label><input type="number" min="0.5" step="0.5" value="${al.h}" oninput="al.h=Math.max(0.5,+this.value||1);ua()">
+<label>Precio por hora (editable)</label><input type="number" step="0.01" value="${pr}" oninput="al.precio=+this.value;ua()">
+<label>Operador</label><select onchange="al.chof=this.selectedIndex">${D.chof.map((c,i)=>`<option ${i==al.chof?'selected':''}>${E(c)}</option>`).join('')}</select>
+${clBox()}${cobBox(al,'al')}<label>N° comprobante (opcional)</label><input id="comp">
+<div style="margin-top:12px" class="mut">Total</div><div class="tot" id="tot">${S(pr*al.h)}</div><button class="pri" onclick="act(alquilar)">REGISTRAR ALQUILER</button></div>
+<div class="card"><h3>Historial de alquileres</h3>${flt('alq')}${tt(fr('alq',D.alq))}${tabla(fr('alq',D.alq),'alq')}</div>`},
+cob(){const dd=deudas(),by={};dd.forEach(x=>{const o=by[x.cli]||(by[x.cli]={s:0,d:0});o.s+=x.sal;o.d=Math.max(o.d,x.dias)});
+const x=cb&&D[cb.tp].find(v=>v.id==cb.id),sl=x?saldo(x):0;
+return `${x&&sl>0?`<div class="card" style="border-color:var(--ac)"><h3>Registrar pago de ${E(x.cli||'cliente')}</h3><div class="mut">Debe ahora: <b>${S(sl)}</b></div><label>Monto que paga hoy S/ (puedes cambiarlo)</label><input type="number" step="0.01" id="cbm" value="${sl}"><label>Método</label><select id="cbt">${opts(['Efectivo','Yape','Plin','Transferencia','Depósito'])}</select><label>Nota</label><input id="cbn"><button class="pri" onclick="act(abonar)">REGISTRAR PAGO</button><button class="sec" onclick="cb=null;render()">Cancelar</button></div>`:''}
+<div class="card"><h3>Quién debe</h3>${dd.length?`<div class="wrap"><table><tr><th>Cliente</th><th>Debe</th><th>Deuda más vieja</th></tr>${Object.entries(by).sort((a,b)=>b[1].s-a[1].s).map(([c,o])=>`<tr><td>${E(c)}</td><td><b>${S(o.s)}</b></td><td>${diasC(o.d)}</td></tr>`).join('')}</table></div><div class="tot" style="font-size:20px;margin-top:8px">Total por cobrar: ${S(sum(dd,x=>x.sal))}</div>`:'<div class="mut">No hay deudas pendientes 🎉</div>'}</div>
+<div class="card"><h3>Detalle de deudas</h3>${dd.length?`<div class="wrap"><table><tr><th>Fecha</th><th>Cliente</th><th>Detalle</th><th>Total</th><th>Pagó</th><th>Debe</th><th>Días</th><th></th></tr>${dd.map(x=>`<tr><td>${fd(x.f)}</td><td>${E(x.cli)}</td><td>${E(x.det)}</td><td>${S(x.tot)}</td><td>${S(x.ab)}</td><td><b>${S(x.sal)}</b></td><td>${diasC(x.dias)}</td><td><button class="sm" onclick="cb={id:'${x.id}',tp:'${x.tp}'};render();scrollTo(0,0)">Cobrar</button></td></tr>`).join('')}</table></div>`:'<div class="mut">Sin registros</div>'}</div>
+<div class="card"><h3>Pagos recibidos de deudas</h3>${tabla(D.abo.slice(-15).reverse(),'abo')}</div>`},
+gas(){return `<div class="card"><h3>Registrar petróleo</h3><label>Foto del recibo (obligatoria, queda guardada)</label>${foto('g')}
+<label>Chofer / trabajador</label><select id="gc">${opts(D.chof)}</select><label>Máquina</label><select id="gm">${opts(D.maq)}</select>
+<div class="row"><div><label>Monto S/</label><input type="number" step="0.01" id="gmon"></div><div><label>Galones (opcional)</label><input type="number" step="0.01" id="ggal"></div></div>
 <label>N° de recibo / factura</label><input id="gn"><label>Fecha del recibo</label><input type="date" id="gfe" value="${HOY}">
-<button class="pri" onclick="act(gas)">GUARDAR GASOLINA</button></div><div class="card"><h3>Historial de gasolina</h3>${flt('gas')}${tt(fr('gas',D.gas))}${tabla(fr('gas',D.gas),'gas')}</div>`},
+<button class="pri" onclick="act(gas)">GUARDAR PETRÓLEO</button></div><div class="card"><h3>Historial de petróleo</h3>${flt('gas')}${tt(fr('gas',D.gas))}${tabla(fr('gas',D.gas),'gas')}</div>`},
 mant(){return `<div class="card"><h3>Mantenimiento de maquinaria</h3><label>Máquina</label><select id="mm">${opts(D.maq)}</select>
-<label>Tipo</label><select id="mt">${opts(['Cambio de aceite','Llantas','Frenos','Mecánica general','Lavado','Repuesto','Otro'])}</select>
-<label>Descripción</label><input id="md"><div class="row"><div><label>Costo S/</label><input type="number" step="0.01" id="mc"></div><div><label>Fecha</label><input type="date" id="mf" value="${HOY}"></div></div>
+<label>¿Qué mantenimiento fue?</label><div class="grid">${MT.map(t=>`<button class="${mtt==t?'on':''}" onclick="mtt='${t}';render()">${t==='Otro'?'✏️ Otro (escribir)':t}</button>`).join('')}</div>${mtt=='Otro'?'<label>Escribe qué se hizo</label><input id="mtx">':''}
+<label>Detalle (opcional)</label><input id="md"><div class="row"><div><label>Costo S/</label><input type="number" step="0.01" id="mc"></div><div><label>Fecha</label><input type="date" id="mf" value="${HOY}"></div></div>
 <label>Proveedor / N° comprobante</label><input id="mp"><label>Foto del comprobante (obligatoria, queda guardada)</label>${foto('m')}
 <button class="pri" onclick="act(mant)">GUARDAR MANTENIMIENTO</button></div><div class="card"><h3>Historial de mantenimiento</h3>${flt('mant')}${tt(fr('mant',D.mant))}${tabla(fr('mant',D.mant),'mant')}</div>`},
-asis(){const h=D.asis.filter(a=>a.f==HOY);
-return `<div class="card"><h3>Asistencia de hoy</h3><div class="mut">Jornada normal: ${D.jor}h. Marca con "Ahora" o escribe la hora.</div>${D.chof.map((c,i)=>{const a=h.find(x=>x.c==c);
-if(!a)return `<div class="card" style="background:var(--card2)"><b>${E(c)}</b><label>Hora de entrada</label><div class="row"><input type="time" id="en${i}" value="${now()}"><button onclick="$('#en${i}').value=now()" style="flex:0">Ahora</button></div><button class="pri" onclick="act(()=>entrada(${i}))">GUARDAR ENTRADA</button></div>`;
-return `<div class="card" style="background:var(--card2)"><b>${E(c)}</b>
+poli(){return `<div class="card"><h3>Pago a policía</h3><label>Concepto</label><div class="grid">${PC.map(c=>`<button class="${pl.con==c?'on':''}" onclick="pl.con='${c}';render()">${c}</button>`).join('')}</div>${pl.con=='Otro'?`<label>Escribe el concepto</label><input value="${E(pl.otro||'')}" oninput="pl.otro=this.value">`:''}
+<label>Monto S/ (toca un botón o escríbelo)</label><div class="grid" style="grid-template-columns:repeat(5,1fr)">${[10,20,30,50,100].map(n=>`<button class="${pl.mon==n?'on':''}" onclick="pl.mon=${n};render()">${n}</button>`).join('')}</div>
+<input type="number" step="0.01" style="margin-top:8px" value="${pl.mon||''}" oninput="pl.mon=+this.value" placeholder="Otro monto">
+<label>Nombre del policía (opcional)</label><input value="${E(pl.pol)}" oninput="pl.pol=this.value"><label>Nota (opcional)</label><input value="${E(pl.nota)}" oninput="pl.nota=this.value">
+<label>Fecha</label><input type="date" value="${pl.f||HOY}" onchange="pl.f=this.value"><button class="pri" onclick="act(policia)">GUARDAR PAGO</button></div>
+<div class="card"><h3>Historial de pagos a policía</h3>${flt('poli')}${tt(fr('poli',D.poli))}${tabla(fr('poli',D.poli),'poli')}</div>`},
+asis(){const sw=`<div class="row"><button class="${av=='hoy'?'on':''}" onclick="av='hoy';render()">Marcar hoy</button><button class="${av=='reg'?'on':''}" onclick="av='reg';render()">Registro (día / mes / año)</button></div>`;
+ if(av=='reg'){const p=D.asis.filter(a=>a.f.startsWith(F.hist.v));
+ return `<div class="card">${sw}<h3 style="margin-top:12px">Registro de asistencia</h3>${flt('hist')}</div><div class="card"><h3>Resumen por trabajador</h3><div class="wrap"><table><tr><th>Trabajador</th><th>Días</th><th>Horas</th><th>H. extra</th><th>☕</th><th>🍲</th><th>Extra por pagar</th></tr>${D.chof.map(c=>{const r=p.filter(a=>a.c==c);return `<tr><td>${E(c)}</td><td>${r.length}</td><td>${sum(r,hrs).toFixed(1)}</td><td>${sum(r,a=>a.h)}</td><td>${r.filter(a=>a.d).length}</td><td>${r.filter(a=>a.a).length}</td><td>${S(sum(r.filter(a=>!a.pag),a=>a.h)*D.hext)}</td></tr>`}).join('')}</table></div></div><div class="card"><h3>Detalle</h3>${tabla(p.slice().reverse(),'asis')}</div>`}
+ const h=D.asis.filter(a=>a.f==HOY);
+ return `<div class="card">${sw}<h3 style="margin-top:12px">Asistencia de hoy</h3><div class="mut">Jornada normal: ${D.jor}h · ☕ desayuno 🍲 almuerzo (marca los que se dieron)</div>${D.chof.map((c,i)=>{const a=h.find(x=>x.c==c);
+ if(!a)return `<div class="card" style="background:var(--card2)"><b>${E(c)}</b><label>Hora de entrada</label><div class="row"><input type="time" id="en${i}" value="${now()}"><button onclick="$('#en${i}').value=now()" style="flex:0">Ahora</button></div><div class="row" style="margin-top:8px">${tg(i,'ed','☕ Desayuno')}${tg(i,'ea','🍲 Almuerzo')}</div><button class="pri" onclick="act(()=>entrada(${i}))">GUARDAR ENTRADA</button></div>`;
+ return `<div class="card" style="background:var(--card2)"><b>${E(c)}</b>
 <div class="row"><div><label>Entrada</label><input type="time" id="e_${a.id}" value="${a.e}" oninput="calc('${a.id}')"></div><div><label>Salida</label><div class="row"><input type="time" id="s_${a.id}" value="${a.s||''}" oninput="calc('${a.id}')"><button onclick="$('#s_${a.id}').value=now();calc('${a.id}')" style="flex:0">Ahora</button></div></div></div>
+<div class="row" style="margin-top:8px">${tg(a.id,'d_','☕ Desayuno',a.d)}${tg(a.id,'a_','🍲 Almuerzo',a.a)}</div>
 <label>Horas extra</label><div class="row">${[0,1,2,3,4].map(n=>`<button class="sm" onclick="sx('${a.id}',${n})">${n}h</button>`).join('')}<input type="number" step="0.5" min="0" id="h_${a.id}" value="${a.h}" oninput="calc('${a.id}')" style="max-width:90px"></div>
 <div id="x_${a.id}" style="margin-top:10px"></div>${a.pag?'<div class="mut">Horas extra ya pagadas (bloqueadas)</div>':''}
 <button class="pri" onclick="act(()=>gasis('${a.id}'))">GUARDAR</button></div>`}).join('')}</div>`},
-hist(){const p=D.asis.filter(a=>a.f.startsWith(F.hist.v));
-return `<div class="card"><h3>Registro de asistencia</h3>${flt('hist')}</div>
-<div class="card"><h3>Resumen por trabajador</h3><div class="wrap"><table><tr><th>Trabajador</th><th>Días</th><th>Horas trab.</th><th>H. extra</th><th>Extra por pagar</th></tr>${D.chof.map(c=>{const r=p.filter(a=>a.c==c),pen=sum(r.filter(a=>!a.pag),a=>a.h);return `<tr><td>${E(c)}</td><td>${r.length}</td><td>${sum(r,hrs).toFixed(1)}</td><td>${sum(r,a=>a.h)}</td><td>${S(pen*D.hext)}</td></tr>`}).join('')}</table></div></div>
-<div class="card"><h3>Detalle</h3>${tabla(p.slice().reverse(),'asis')}</div>`},
 pag(){const c=D.chof[pg.i],pen=D.asis.filter(a=>a.c==c&&a.h>0&&!a.pag),ph=sum(pen,a=>a.h);
 const mon=pg.t=='Horas extra'?ph*D.hext:pg.t=='Sueldo'?D.sue[pg.i]||'':'';
 return `<div class="card"><h3>Pagar a trabajador</h3><label>Trabajador</label><select onchange="sp('i',this.selectedIndex)">${D.chof.map((x,i)=>`<option ${i==pg.i?'selected':''}>${E(x)}</option>`).join('')}</select>
@@ -133,72 +183,95 @@ ${pg.t=='Horas extra'?`<div class="mut" style="margin-top:8px">Pendientes: <b>${
 <label>Monto S/ ${pg.t=='Horas extra'?'(calculado)':''}</label><input type="number" step="0.01" id="pmon" value="${mon}" ${pg.t=='Horas extra'?'readonly':''}>
 <label>Periodo que se paga</label><input type="month" id="pper" value="${HOY.slice(0,7)}"><label>Método</label><select id="pmet">${opts(['Efectivo','Yape','Plin','Transferencia'])}</select>
 <label>N° constancia / recibo</label><input id="pn"><label>Nota</label><input id="pnota">
-<button class="pri" onclick="act(pagar)">REGISTRAR PAGO</button></div><div class="card"><h3>Historial de pagos</h3>${flt('pag')}${tt(fr('pag',D.pagos))}${tabla(fr('pag',D.pagos),'pag')}</div>`},
+<button class="pri" onclick="act(pagar)">REGISTRAR PAGO</button></div><div class="card"><h3>Historial de pagos</h3>${flt('pag')}${tt(fr('pag',D.pagos))}${tabla(fr('pag',D.pagos),'pagos')}</div>`},
+graf(){const f=F.graf,pre=f.v,mo=f.m=='m',y=+pre.slice(0,4),nd=mo?new Date(y,+pre.slice(5,7),0).getDate():12,B=Array(nd).fill(0),inP=x=>x.f.startsWith(pre),ok=l=>l.filter(x=>!x.anu&&inP(x));
+ const lb=Array.from({length:nd},(_,i)=>mo?((i+1)%5==0||i==0?i+1:''):['E','F','M','A','M','J','J','A','S','O','N','D'][i]),ix=x=>mo?+x.f.slice(8,10)-1:+x.f.slice(5,7)-1;
+ const C=cash().filter(inP);C.forEach(r=>B[ix(r)]+=r.m);
+ const gas=sum(ok(D.gas),x=>x.mon),mant=sum(ok(D.mant),x=>x.mon),pol=sum(ok(D.poli),x=>x.mon),per=sum(ok(D.pagos),x=>x.mon),com=sum(D.asis.filter(inP),x=>(x.d?D.pd:0)+(x.a?D.pa:0)),ing=sum(C,x=>x.m),ut=ing-gas-mant-pol-per-com;
+ const grp=(l,kf,vf)=>{const o={};l.forEach(x=>o[kf(x)]=(o[kf(x)]||0)+vf(x));return Object.entries(o).sort((a,b)=>b[1]-a[1])};
+ const hb=(it,col='var(--ac)')=>{const mx=Math.max(...it.map(x=>x[1]),1);return it.length?it.map(([n,v])=>`<div class="hb"><div class="t"><span>${E(n)}</span><b>${S(v)}</b></div><div class="b"><i style="width:${Math.max(2,v/mx*100)}%;background:${col}"></i></div></div>`).join(''):'<div class="mut">Sin datos</div>'};
+ return `<div class="card"><h3>Gráficos</h3>${flt('graf',['m','a'])}</div>
+<div class="card"><h3>Dinero cobrado ${mo?'por día':'por mes'}</h3><div class="tot" style="font-size:20px">${S(ing)}</div><div class="bars">${B.map((v,i)=>`<div style="height:${v/Math.max(...B,1)*100}%" title="${i+1}: ${S(v)}"></div>`).join('')}</div><div class="bl">${lb.map(l=>`<span>${l}</span>`).join('')}</div></div>
+<div class="card"><h3>Ingresos y gastos</h3>${hb([['Dinero cobrado',ing]],'var(--ok)')}${hb([['Petróleo',gas],['Mantenimiento',mant],['Policía',pol],['Personal',per],['Comidas (estimado)',com]],'var(--bad)')}<div class="tot" style="font-size:20px;margin-top:8px;color:${ut>=0?'var(--ok)':'var(--bad)'}">Utilidad aprox.: ${S(ut)}</div></div>
+<div class="card"><h3>Ventas por material</h3>${hb(grp(ok(D.ventas),x=>x.mat,x=>x.tot))}</div>
+<div class="card"><h3>Alquiler por máquina</h3>${hb(grp(ok(D.alq),x=>x.maq,x=>x.tot))}</div>
+<div class="card"><h3>Petróleo por máquina</h3>${hb(grp(ok(D.gas),x=>x.m,x=>x.mon),'var(--bad)')}</div>`},
 rep(){return `<div class="card"><h3>Reporte</h3><div class="row"><div><label>Desde</label><input type="date" id="r1" value="${HOY.slice(0,8)}01" onchange="rep()"></div><div><label>Hasta</label><input type="date" id="r2" value="${HOY}" onchange="rep()"></div></div><div id="rr"></div></div>`},
-aj(){return `<div class="card"><h3>Datos de la empresa (salen en los reportes)</h3><label>Nombre o razón social</label><input value="${E(D.emp)}" onchange="D.emp=this.value;save()"><label>RUC</label><input inputmode="numeric" value="${E(D.ruc)}" onchange="D.ruc=this.value;save()"></div>
-<div class="card"><h3>Materiales y precios</h3>${D.mats.map((m,i)=>`<div class="row" style="margin-bottom:6px"><input value="${E(m.n)}" onchange="D.mats[${i}].n=this.value;save()"><input type="number" value="${m.p}" onchange="D.mats[${i}].p=+this.value;save()" style="max-width:110px"><button class="sm" onclick="D.mats.splice(${i},1);st.mat=0;save().then(render)" style="flex:0">✕</button></div>`).join('')}<button onclick="D.mats.push({n:'Nuevo material',p:0});save().then(render)">+ Material</button></div>
-<div class="card"><h3>Empleados y sueldo mensual</h3>${D.chof.map((c,i)=>`<div class="row" style="margin-bottom:6px"><input value="${E(c)}" onchange="ren(${i},this.value)"><input type="number" placeholder="Sueldo S/" value="${D.sue[i]||''}" onchange="D.sue[${i}]=+this.value;save()" style="max-width:130px"></div>`).join('')}</div>
-<div class="card"><h3>Máquinas</h3>${D.maq.map((c,i)=>`<input style="margin-bottom:6px" value="${E(c)}" onchange="D.maq[${i}]=this.value;save()">`).join('')}</div>
-<div class="card"><h3>Pago por hora extra (S/)</h3><input type="number" step="0.5" value="${D.hext}" onchange="D.hext=+this.value;save()"></div>
-<div class="card"><h3>Jornada normal (horas)</h3><input type="number" step="0.5" value="${D.jor}" onchange="D.jor=+this.value||8;save()"></div>
+aj(){return `<div class="card"><h3>Datos de la finca (salen en los reportes)</h3><label>Nombre</label><input value="${E(D.emp)}" onchange="D.emp=this.value;save()"><label>RUC</label><input inputmode="numeric" value="${E(D.ruc)}" onchange="D.ruc=this.value;save()"></div>
+<div class="card"><h3>Materiales y precios</h3><div class="row mut" style="margin-bottom:4px"><span style="flex:2">Material</span><span>Camión 10 cúb.</span><span>Por cúbico</span><span style="flex:0 0 34px"></span></div>${D.mats.map((m,i)=>`<div class="row" style="margin-bottom:6px;flex-wrap:nowrap"><input style="flex:2" value="${E(m.n)}" onchange="D.mats[${i}].n=this.value;save()"><input type="number" value="${m.pc||''}" onchange="D.mats[${i}].pc=+this.value;save()"><input type="number" value="${m.pq||''}" onchange="D.mats[${i}].pq=+this.value;save()"><button class="sm" onclick="D.mats.splice(${i},1);st.mat=0;save().then(render)" style="flex:0">✕</button></div>`).join('')}<button onclick="D.mats.push({n:'Nuevo material',pc:0,pq:0});save().then(render)">+ Material</button></div>
+<div class="card"><h3>Máquinas que se alquilan (precio por hora)</h3>${D.alq.map((m,i)=>`<div class="row" style="margin-bottom:6px;flex-wrap:nowrap"><input style="flex:2" value="${E(m.n)}" onchange="D.alq[${i}].n=this.value;save()"><input type="number" value="${m.p}" onchange="D.alq[${i}].p=+this.value;save()"><button class="sm" onclick="D.alq.splice(${i},1);al.i=0;save().then(render)" style="flex:0">✕</button></div>`).join('')}<button onclick="D.alq.push({n:'Nueva máquina',p:0});save().then(render)">+ Máquina de alquiler</button></div>
+<div class="card"><h3>Empleados y sueldo mensual</h3>${D.chof.map((c,i)=>`<div class="row" style="margin-bottom:6px;flex-wrap:nowrap"><input value="${E(c)}" onchange="ren(${i},this.value)"><input type="number" placeholder="Sueldo S/" value="${D.sue[i]||''}" onchange="D.sue[${i}]=+this.value;save()" style="max-width:130px"></div>`).join('')}<button onclick="D.chof.push('Empleado '+(D.chof.length+1));D.sue.push(0);save().then(render)">+ Empleado</button></div>
+<div class="card"><h3>Máquinas propias (petróleo y mantenimiento)</h3>${D.maq.map((c,i)=>`<div class="row" style="margin-bottom:6px;flex-wrap:nowrap"><input value="${E(c)}" onchange="D.maq[${i}]=this.value;save()"><button class="sm" onclick="D.maq.splice(${i},1);save().then(render)" style="flex:0">✕</button></div>`).join('')}<button onclick="D.maq.push('Nueva máquina');save().then(render)">+ Máquina</button></div>
+<div class="card"><h3>Horas extra y jornada</h3><label>Pago por hora extra (S/)</label><input type="number" step="0.5" value="${D.hext}" onchange="D.hext=+this.value;save()"><label>Jornada normal (horas)</label><input type="number" step="0.5" value="${D.jor}" onchange="D.jor=+this.value||8;save()"></div>
+<div class="card"><h3>Comidas (costo por persona, opcional)</h3><div class="row"><div><label>☕ Desayuno S/</label><input type="number" step="0.5" value="${D.pd||''}" onchange="D.pd=+this.value;save()"></div><div><label>🍲 Almuerzo S/</label><input type="number" step="0.5" value="${D.pa||''}" onchange="D.pa=+this.value;save()"></div></div></div>
 <div class="card"><h3>Auditoría (últimos 40 eventos)</h3><p class="mut">Los datos están en Neon. Nada se borra: se anula con motivo.</p><div class="wrap"><table>${D.log.map(l=>`<tr><td class="mut">${l.t}</td><td>${E(l.accion)}</td></tr>`).join('')}</table></div></div>`}
 };
 function sp(k,v){pg[k]=v;render()}
-function updt(){const m=D.mats[st.mat];$('#tot').textContent=S((st.precio??m.p)*st.q)}
+function sm2(m){st.mod=m;st.q=m=='camion'?1:10;st.precio=null;render()}
+function updt(){const m=D.mats[st.mat],pr=st.precio??(st.mod=='camion'?m.pc:m.pq);$('#tot').textContent=S((pr||0)*st.q)}
+function ua(){$('#tot').textContent=S((al.precio??D.alq[al.i].p)*al.h)}
 function ren(i,v){const o=D.chof[i];if(!v||v==o)return;D.chof[i]=v;act(async()=>{await api('cfg',{cfg:cfgObj(),ren:[o,v]});await load();toast('Guardado')})}
-async function venta(){const m=D.mats[st.mat],p=st.precio??m.p;if(!(p>0))return toast('Revisa el precio',1);
- await add('ventas',{mat:m.n,q:st.q,p,c:D.chof[st.chof],met:$('#met').value,est:st.est,cob:st.est=='Pagado',cli:$('#cli').value,comp:$('#comp').value});st.q=1;st.precio=null;toast('Venta registrada')}
-async function cobrar(id){await upd(id,{cob:HOY});await load();toast('Cobrado')}
+async function venta(){const m=D.mats[st.mat],cam=st.mod=='camion',p=st.precio??(cam?m.pc:m.pq),cli=$('#cli').value.trim();if(!(p>0))return toast('Escribe el precio',1);if(st.est=='Fiado'&&!cli)return toast('Para fiado escribe el nombre del cliente',1);
+ await add('ventas',{mod:st.mod,mat:m.n,q:st.q,p,dest:cam?st.dest:'Recojo (ferretería)',c:cam?D.chof[st.chof]:'',met:$('#met').value,est:st.est,cob:st.est=='Pagado',cli,comp:$('#comp').value});st.precio=null;st.q=cam?1:10;toast('Venta registrada')}
+async function alquilar(){const m=D.alq[al.i],p=al.precio??m.p,cli=$('#cli').value.trim();if(!(p>0))return toast('Escribe el precio por hora',1);if(al.est=='Fiado'&&!cli)return toast('Para fiado escribe el nombre del cliente',1);
+ await add('alq',{maq:m.n,hr:al.h,p,c:D.chof[al.chof],met:$('#met').value,est:al.est,cob:al.est=='Pagado',cli,comp:$('#comp').value});al.precio=null;al.h=1;toast('Alquiler registrado')}
+async function abonar(){const x=D[cb.tp].find(v=>v.id==cb.id),sl=saldo(x),m=+$('#cbm').value;if(!(m>0))return toast('Escribe el monto',1);if(m>sl+0.005)return toast('Es más de lo que debe ('+S(sl)+')',1);
+ await api('add',{tipo:'abo',rec:{ref:x.id,rt:cb.tp,cli:x.cli||'',det:cb.tp=='ventas'?x.mat:x.maq,mon:m,met:$('#cbt').value,nota:$('#cbn').value}});if(m>=sl-0.005)await upd(x.id,{cob:HOY});cb=null;await load();toast('Pago registrado')}
 function comprimir(file){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,900/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.6))};im.src=fr.result};fr.readAsDataURL(file)})}
 async function pv(k,i){const f=i.files[0];if(!f)return;P[k]=await comprimir(f);$('#'+k+'p').innerHTML=`<img src="${P[k]}" style="max-width:140px;border-radius:8px"> ✓`}
 async function cam(k){CK=k;try{CS=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});$('#cv').srcObject=CS;$('#cam').style.display='flex'}catch(e){toast('No se pudo abrir la cámara: usa "Cámara del teléfono"',1)}}
 function camX(){CS&&CS.getTracks().forEach(t=>t.stop());$('#cam').style.display='none'}
 function camS(){const v=$('#cv'),c=document.createElement('canvas'),k=Math.min(1,900/v.videoWidth);c.width=v.videoWidth*k;c.height=v.videoHeight*k;c.getContext('2d').drawImage(v,0,0,c.width,c.height);P[CK]=c.toDataURL('image/jpeg',.6);camX();$('#'+CK+'p').innerHTML=`<img src="${P[CK]}" style="max-width:140px;border-radius:8px"> ✓`}
 async function gas(){const mon=+$('#gmon').value;if(!P.g)return toast('Toma o sube la foto del recibo',1);if(!(mon>0))return toast('Ingresa el monto',1);
- await add('gas',{f:$('#gfe').value,c:$('#gc').value,m:$('#gm').value,mon,gal:+$('#ggal').value,n:$('#gn').value,img:P.g});P.g=null;toast('Gasolina guardada con su foto')}
-async function mant(){const c=+$('#mc').value;if(!P.m)return toast('Toma o sube la foto del comprobante',1);if(!(c>0)||!$('#md').value)return toast('Completa descripción y costo',1);
- await add('mant',{f:$('#mf').value,m:$('#mm').value,t:$('#mt').value,d:$('#md').value,mon:c,p:$('#mp').value,img:P.m});P.m=null;toast('Mantenimiento guardado con su foto')}
-async function entrada(i){await add('asis',{c:D.chof[i],e:$('#en'+i).value||now(),s:null,h:0,pag:null});toast('Entrada guardada')}
+ await add('gas',{f:$('#gfe').value,c:$('#gc').value,m:$('#gm').value,mon,gal:+$('#ggal').value,n:$('#gn').value,img:P.g});P.g=null;toast('Petróleo guardado con su foto')}
+async function mant(){const c=+$('#mc').value,t=mtt=='Otro'?($('#mtx').value||'').trim():mtt;if(!P.m)return toast('Toma o sube la foto del comprobante',1);if(!t)return toast('Escribe qué mantenimiento fue',1);if(!(c>0))return toast('Ingresa el costo',1);
+ await add('mant',{f:$('#mf').value,m:$('#mm').value,t,d:$('#md').value,mon:c,p:$('#mp').value,img:P.m});P.m=null;toast('Mantenimiento guardado con su foto')}
+async function policia(){const con=pl.con=='Otro'?(pl.otro||'').trim():pl.con;if(!con)return toast('Escribe el concepto',1);if(!(pl.mon>0))return toast('Elige o escribe el monto',1);
+ await add('poli',{f:pl.f||HOY,con,mon:pl.mon,pol:pl.pol,nota:pl.nota});pl={con:PC[0],mon:0,pol:'',nota:'',f:''};toast('Pago registrado')}
+async function entrada(i){await add('asis',{c:D.chof[i],e:$('#en'+i).value||now(),s:null,h:0,pag:null,d:on('ed'+i),a:on('ea'+i)});toast('Entrada guardada')}
 function calc(id){const w=wk($('#e_'+id).value,$('#s_'+id).value),h=+$('#h_'+id).value||0,sg=Math.max(0,Math.floor((w-D.jor)*2)/2);
  $('#x_'+id).innerHTML=`Trabajó <b>${w.toFixed(1)}h</b>${w?` · Sugerido extra: <b>${sg}h</b> <button class="sm" onclick="sx('${id}',${sg})">Usar</button>`:''}<div class="tot" style="font-size:18px;margin-top:6px">Horas extra: ${h}h = ${S(h*D.hext)}</div>`}
 function sx(id,n){$('#h_'+id).value=n;calc(id)}
 async function gasis(id){const e=$('#e_'+id).value,s=$('#s_'+id).value,h=Math.max(0,+$('#h_'+id).value||0);if(!e)return toast('Falta la hora de entrada',1);
- await upd(id,{e,s:s||null,h});await load();toast('Asistencia guardada')}
-async function pagar(){const c=D.chof[pg.i],t=pg.t;let mon=+$('#pmon').value,L=[];
- if(t=='Horas extra'){L=D.asis.filter(a=>a.c==c&&a.h>0&&!a.pag);if(!L.length)return toast('Sin horas extra pendientes',1);mon=sum(L,a=>a.h)*D.hext}
+ await upd(id,{e,s:s||null,h,d:on('d_'+id),a:on('a_'+id)});await load();toast('Asistencia guardada')}
+async function pagar(){const c=D.chof[pg.i],t=pg.t,L0=t=='Horas extra'?D.asis.filter(a=>a.c==c&&a.h>0&&!a.pag):[];let mon=+$('#pmon').value;
+ if(t=='Horas extra'){if(!L0.length)return toast('Sin horas extra pendientes',1);mon=sum(L0,a=>a.h)*D.hext}
  if(!(mon>0))return toast('Monto inválido',1);
  const r=await api('add',{tipo:'pagos',rec:{c,t,mon,per:$('#pper').value,met:$('#pmet').value,n:$('#pn').value,nota:$('#pnota').value}});
- for(const a of L)await upd(a.id,{pag:r.id});await load();toast('Pago registrado')}
+ for(const a of L0)await upd(a.id,{pag:r.id});await load();toast('Pago registrado')}
 async function anular(tipo,id){const m=prompt('Motivo de anulación (obligatorio):');if(!m)return;
- await api('anu',{id,m});const r=D[tipo].find(x=>x.id==id);if(tipo=='pagos'&&r&&r.t=='Horas extra')for(const a of D.asis.filter(a=>a.pag==id))await upd(a.id,{pag:null});await load();toast('Anulado')}
+ await api('anu',{id,m});const r=D[tipo].find(x=>x.id==id);
+ if(tipo=='pagos'&&r&&r.t=='Horas extra')for(const a of D.asis.filter(a=>a.pag==id))await upd(a.id,{pag:null});
+ if(tipo=='abo'&&r){const o=[...D.ventas,...D.alq].find(x=>x.id==r.ref);if(o&&o.cob)await upd(o.id,{cob:false})}
+ await load();toast('Anulado')}
 const ver=id=>window.open('/api?a=foto&id='+id);
-function tabla(a,t){if(!a.length)return '<div class="mut">Sin registros</div>';
- const H={ventas:['Fecha','Hora','Material','Cant','Total','Chofer','Pago'],gas:['Fecha','Chofer','Vehículo','Monto','Foto'],mant:['Fecha','Máquina','Detalle','Costo','Foto'],asis:['Fecha','Trabajador','Ent','Sal','Horas','Extra','Pago extra'],pag:['Fecha','Trabajador','Tipo','Monto','Periodo']}[t];
- const im=x=>`<img class="th" src="/api?a=foto&id=${x.id}" onclick="ver('${x.id}')">`;
- const R=x=>({ventas:[x.f,x.h,E(x.mat),x.q,S(x.tot),E(x.c),E(x.met||'')+(x.est=='Fiado'&&!x.cob?' ⚠ Fiado':'')],gas:[x.f,E(x.c),E(x.m),S(x.mon),im(x)],mant:[x.f,E(x.m),E(x.t+' · '+x.d),S(x.mon),im(x)],asis:[x.f,E(x.c),x.e,x.s||'-',hrs(x).toFixed(1),x.h+'h',x.h?(x.pag?'✔ Pagado':'Pendiente')+' '+S(x.h*D.hext):'-'],pag:[x.f,E(x.c),x.t,S(x.mon),x.per||'-']}[t]);
- return `<div class="wrap"><table><tr>${H.map(h=>`<th>${h}</th>`).join('')}<th></th></tr>${a.map(x=>`<tr class="${x.anu?'void':''}">${R(x).map(c=>`<td>${c}</td>`).join('')}<td>${t=='asis'?'':x.anu?'Anulado':(t=='ventas'&&x.est=='Fiado'&&!x.cob?`<button class="sm" onclick="act(()=>cobrar('${x.id}'))">Cobrar</button> `:'')+`<button class="sm" onclick="act(()=>anular('${t}','${x.id}'))">Anular</button>`}</td></tr>`).join('')}</table></div>`}
-function rep(){const a=$('#r1').value,b=$('#r2').value,ok=x=>!x.anu&&x.f>=a&&x.f<=b;
- const V=D.ventas.filter(ok),G=D.gas.filter(ok),M=D.mant.filter(ok),A=D.asis.filter(x=>x.f>=a&&x.f<=b),PG=D.pagos.filter(ok);
- const cob=sum(V.filter(x=>x.est!='Fiado'||x.cob),x=>x.tot),pc=sum(V.filter(x=>x.est=='Fiado'&&!x.cob),x=>x.tot),sg=sum(G,x=>x.mon),sm=sum(M,x=>x.mon);
- const pt=t=>sum(PG.filter(x=>x.t==t),x=>x.mon),hpen=sum(A.filter(x=>!x.pag),x=>x.h),tp=sum(PG,x=>x.mon),ut=cob-sg-sm-tp,por={};V.forEach(x=>por[x.mat]=(por[x.mat]||0)+x.q);
- $('#rr').innerHTML=`<div class="kp"><div><small>Ventas cobradas</small><b>${S(cob)}</b></div><div><small>Por cobrar</small><b>${S(pc)}</b></div><div><small>Gasolina</small><b>${S(sg)}</b></div><div><small>Mantenimiento</small><b>${S(sm)}</b></div><div><small>Sueldos pagados</small><b>${S(pt('Sueldo'))}</b></div><div><small>Adelantos</small><b>${S(pt('Adelanto'))}</b></div><div><small>Horas extra pagadas</small><b>${S(pt('Horas extra'))}</b></div><div><small>H. extra pendientes (${hpen}h)</small><b>${S(hpen*D.hext)}</b></div><div><small>Utilidad aprox.</small><b style="color:${ut>=0?'var(--ok)':'var(--bad)'}">${S(ut)}</b></div></div>
-<h3 style="margin-top:14px">Personal en el periodo</h3><div class="wrap"><table><tr><th>Trabajador</th><th>Días</th><th>H. trab.</th><th>H. extra</th><th>Sueldo</th><th>Adelanto</th><th>Extra pagado</th></tr>${D.chof.map(c=>{const r=A.filter(x=>x.c==c),p=t=>sum(PG.filter(x=>x.c==c&&x.t==t),x=>x.mon);return `<tr><td>${E(c)}</td><td>${r.length}</td><td>${sum(r,hrs).toFixed(1)}</td><td>${sum(r,x=>x.h)}</td><td>${S(p('Sueldo'))}</td><td>${S(p('Adelanto'))}</td><td>${S(p('Horas extra'))}</td></tr>`}).join('')}</table></div>
-<h3 style="margin-top:14px">Volquetadas por material</h3><div class="mut">${Object.entries(por).map(([k,v])=>`${E(k)}: <b>${v}</b>`).join(' · ')||'-'}</div>
-<button class="pri" onclick="act(excel)">📗 DESCARGAR EXCEL</button><button class="pri" style="background:var(--card2);color:var(--tx);border:1px solid var(--ac)" onclick="act(pdf)">📄 REPORTE EN PDF (PDF para SUNAT)</button><div class="mut" style="margin-top:8px">Elige primero las fechas "Desde" y "Hasta". El PDF incluye las fotos de los recibos; al abrirse, elige "Guardar como PDF".</div>`}
-const fd=f=>f?f.split('-').reverse().join('/'):'';
-const datos=()=>{const a=$('#r1').value,b=$('#r2').value,r=x=>x.f>=a&&x.f<=b,o=(x,y)=>x.f<y.f?-1:x.f>y.f?1:0,g=l=>l.filter(r).sort(o);return{a,b,V:g(D.ventas),G:g(D.gas),M:g(D.mant),A:g(D.asis),PG:g(D.pagos)}};
-const kp=d=>{const V=d.V.filter(x=>!x.anu),G=d.G.filter(x=>!x.anu),M=d.M.filter(x=>!x.anu),PG=d.PG.filter(x=>!x.anu),pt=t=>sum(PG.filter(x=>x.t==t),x=>x.mon);
- const k={vq:sum(V,x=>x.q),cob:sum(V.filter(x=>x.est!='Fiado'||x.cob),x=>x.tot),pc:sum(V.filter(x=>x.est=='Fiado'&&!x.cob),x=>x.tot),gas:sum(G,x=>x.mon),mant:sum(M,x=>x.mon),sue:pt('Sueldo'),ade:pt('Adelanto'),hep:pt('Horas extra'),hpen:sum(d.A.filter(x=>!x.pag),x=>x.h)};
- k.ut=k.cob-k.gas-k.mant-k.sue-k.ade-k.hep;return k};
-const KL=[['Ventas cobradas','cob','Dinero que ya entró por ventas (no incluye fiados sin cobrar).'],['Por cobrar (fiados)','pc','Ventas a crédito que todavía no se cobran.'],['Gasolina','gas','Suma de los recibos de combustible válidos.'],['Mantenimiento','mant','Suma de los gastos de mantenimiento válidos.'],['Sueldos pagados','sue','Sueldos entregados a los trabajadores.'],['Adelantos','ade','Adelantos de sueldo entregados.'],['Horas extra pagadas','hep','Pagos por horas extra ya entregados.'],['Utilidad aproximada','ut','Ventas cobradas menos gasolina, mantenimiento y pagos al personal. Es referencial: no es el resultado contable.']];
+const cobT=x=>x.est=='Fiado'?(saldo(x)>0?'DEBE '+S(saldo(x)):'Fiado · ya cobrado'):'Pagado';
 const estC=x=>x.anu?'ANULADO: '+x.anu.m:'VÁLIDO';
-const cobT=x=>x.est=='Fiado'?(x.cob?'Fiado · ya cobrado':'POR COBRAR'):'Pagado';
 const exT=a=>!a.h?'Sin horas extra':a.pag?'Pagado':'Pendiente de pago';
-const empT=()=>(D.emp||'FERRETERÍA')+(D.ruc?' · RUC '+D.ruc:'');
+const SN=x=>x?'Sí':'No';
+function tabla(a,t){if(!a.length)return '<div class="mut">Sin registros</div>';
+ const H={ventas:['Fecha','Hora','Material','Cantidad','Total','Destino / chofer','Cliente','Pago'],alq:['Fecha','Máquina','Horas','Total','Operador','Cliente','Pago'],abo:['Fecha','Cliente','Concepto','Monto','Método'],gas:['Fecha','Trabajador','Máquina','Monto','Foto'],mant:['Fecha','Máquina','Mantenimiento','Costo','Foto'],poli:['Fecha','Concepto','Policía','Monto','Nota'],asis:['Fecha','Trabajador','Ent','Sal','Horas','Extra','Comidas','Pago extra'],pagos:['Fecha','Trabajador','Tipo','Monto','Periodo']}[t];
+ const im=x=>`<img class="th" src="/api?a=foto&id=${x.id}" onclick="ver('${x.id}')">`,deb=x=>x.est=='Fiado'?(saldo(x)>0?` <span class="red">⚠ Debe ${S(saldo(x))}</span>`:' ✔'):'';
+ const R=x=>({ventas:[fd(x.f),x.h,E(x.mat),cant(x),S(x.tot),E([x.dest,x.c].filter(Boolean).join(' · ')),E(x.cli||''),E(x.met||'')+deb(x)],alq:[fd(x.f),E(x.maq),x.hr,S(x.tot),E(x.c),E(x.cli||''),E(x.met||'')+deb(x)],abo:[fd(x.f),E(x.cli),E(x.det),S(x.mon),E(x.met)],gas:[fd(x.f),E(x.c),E(x.m),S(x.mon),im(x)],mant:[fd(x.f),E(x.m),E(x.t+(x.d?' · '+x.d:'')),S(x.mon),im(x)],poli:[fd(x.f),E(x.con),E(x.pol||''),S(x.mon),E(x.nota||'')],asis:[fd(x.f),E(x.c),x.e,x.s||'-',hrs(x).toFixed(1),x.h+'h',(x.d?'☕':'')+(x.a?'🍲':''),x.h?(x.pag?'✔ Pagado':'Pendiente')+' '+S(x.h*D.hext):'-'],pagos:[fd(x.f),E(x.c),x.t,S(x.mon),x.per||'-']}[t]);
+ return `<div class="wrap"><table><tr>${H.map(h=>`<th>${h}</th>`).join('')}<th></th></tr>${a.map(x=>`<tr class="${x.anu?'void':''}">${R(x).map(c=>`<td>${c}</td>`).join('')}<td>${t=='asis'?'':x.anu?'Anulado':(['ventas','alq'].includes(t)&&saldo(x)>0?`<button class="sm" onclick="cb={id:'${x.id}',tp:'${t}'};tab='cob';render()">Cobrar</button> `:'')+`<button class="sm" onclick="act(()=>anular('${t}','${x.id}'))">Anular</button>`}</td></tr>`).join('')}</table></div>`}
+// ---- datos para reportes
+const datos=()=>{const a=$('#r1').value,b=$('#r2').value,r=x=>x.f>=a&&x.f<=b,o=(x,y)=>x.f<y.f?-1:x.f>y.f?1:0,g=l=>l.filter(r).sort(o);return{a,b,V:g(D.ventas),AL:g(D.alq),AB:g(D.abo),G:g(D.gas),M:g(D.mant),PO:g(D.poli),A:g(D.asis),PG:g(D.pagos)}};
+const kp=d=>{const ok=l=>l.filter(x=>!x.anu),V=ok(d.V),AL=ok(d.AL),G=ok(d.G),M=ok(d.M),PO=ok(d.PO),PG=ok(d.PG),pt=t=>sum(PG.filter(x=>x.t==t),x=>x.mon);
+ const k={cam:sum(V.filter(x=>x.mod!='cubico'),x=>x.q),cub:sum(V.filter(x=>x.mod=='cubico'),x=>x.q),vend:sum(V,x=>x.tot)+sum(AL,x=>x.tot),cob:sum(cash().filter(r=>r.f>=d.a&&r.f<=d.b),x=>x.m),pc:sum([...D.ventas,...D.alq],saldo),gas:sum(G,x=>x.mon),mant:sum(M,x=>x.mon),poli:sum(PO,x=>x.mon),sue:pt('Sueldo'),ade:pt('Adelanto'),hep:pt('Horas extra'),com:sum(d.A,x=>(x.d?D.pd:0)+(x.a?D.pa:0)),hpen:sum(d.A.filter(x=>!x.pag),x=>x.h)};
+ k.ut=k.cob-k.gas-k.mant-k.poli-k.sue-k.ade-k.hep-k.com;return k};
+const KL=[['Total vendido','vend','Ventas y alquileres del periodo, se hayan cobrado o no.'],['Dinero cobrado','cob','Plata que entró en el periodo: ventas y alquileres al contado más los pagos recibidos de deudas.'],['Por cobrar (lo que le deben hoy)','pc','Suma de todas las deudas pendientes, de cualquier fecha.'],['Petróleo','gas','Suma de los recibos de petróleo válidos.'],['Mantenimiento','mant','Suma de los gastos de mantenimiento válidos.'],['Pagos a policía','poli','Pagos registrados en el apartado de policía.'],['Sueldos pagados','sue','Sueldos entregados a los trabajadores.'],['Adelantos','ade','Adelantos de sueldo entregados.'],['Horas extra pagadas','hep','Pagos por horas extra ya entregados.'],['Comidas (estimado)','com','Desayunos y almuerzos dados, según el precio configurado en Ajustes.'],['Utilidad aproximada','ut','Dinero cobrado menos petróleo, mantenimiento, policía, personal y comidas. Es referencial: no es el resultado contable.']];
+const matTab=d=>{const o={};d.V.filter(x=>!x.anu).forEach(x=>{const r=o[x.mat]||(o[x.mat]={n:x.mat,cam:0,cub:0,tot:0});if(x.mod=='cubico')r.cub+=x.q;else r.cam+=x.q;r.tot+=x.tot});return Object.values(o).map(r=>({...r,m3:r.cam*10+r.cub})).sort((a,b)=>b.tot-a.tot)};
+const perT=d=>D.chof.map(c=>{const r=d.A.filter(x=>x.c==c),p=t=>sum(d.PG.filter(x=>x.c==c&&x.t==t&&!x.anu),x=>x.mon);return{c,dias:r.length,ht:sum(r,hrs),he:sum(r,x=>x.h),de:r.filter(x=>x.d).length,al:r.filter(x=>x.a).length,su:p('Sueldo'),ad:p('Adelanto'),ep:p('Horas extra'),pen:sum(r.filter(x=>!x.pag),x=>x.h)*D.hext}});
+function rep(){const d=datos(),k=kp(d);
+ $('#rr').innerHTML=`<div class="kp"><div><small>Camiones vendidos</small><b>${k.cam}</b></div><div><small>Cúbicos vendidos</small><b>${k.cub}</b></div>${KL.map(([n,key])=>`<div><small>${n}</small><b style="${key=='ut'?`color:${k.ut>=0?'var(--ok)':'var(--bad)'}`:''}">${S(k[key])}</b></div>`).join('')}<div><small>H. extra pendientes (${k.hpen}h)</small><b>${S(k.hpen*D.hext)}</b></div></div>
+<h3 style="margin-top:14px">Material vendido</h3><div class="wrap"><table><tr><th>Material</th><th>Camiones</th><th>Cúbicos</th><th>Total m³</th><th>Importe</th></tr>${matTab(d).map(r=>`<tr><td>${E(r.n)}</td><td>${r.cam}</td><td>${r.cub}</td><td>${r.m3}</td><td>${S(r.tot)}</td></tr>`).join('')||'<tr><td colspan="5">Sin ventas</td></tr>'}</table></div>
+<h3 style="margin-top:14px">Personal en el periodo</h3><div class="wrap"><table><tr><th>Trabajador</th><th>Días</th><th>H. trab.</th><th>H. extra</th><th>☕</th><th>🍲</th><th>Sueldo</th><th>Adelanto</th><th>Extra pagado</th></tr>${perT(d).map(r=>`<tr><td>${E(r.c)}</td><td>${r.dias}</td><td>${r.ht.toFixed(1)}</td><td>${r.he}</td><td>${r.de}</td><td>${r.al}</td><td>${S(r.su)}</td><td>${S(r.ad)}</td><td>${S(r.ep)}</td></tr>`).join('')}</table></div>
+<button class="pri" onclick="act(excel)">📗 DESCARGAR EXCEL (ordenado y explicado)</button><button class="sec" onclick="act(pdf)">📄 REPORTE EN PDF (para SUNAT, con fotos)</button><div class="mut" style="margin-top:8px">Elige primero las fechas "Desde" y "Hasta". El PDF incluye las fotos de los recibos; al abrirse, elige "Guardar como PDF".</div>`}
+const empT=()=>(D.emp||'FINCA CHATE')+(D.ruc?' · RUC '+D.ruc:'');
 const dlb=(n,blob)=>{const l=document.createElement('a');l.href=URL.createObjectURL(blob);l.download=n;l.click()};
 async function excel(){if(typeof ExcelJS=='undefined')throw new Error('No cargó la librería de Excel. Revisa tu internet y recarga.');
  const d=datos(),k=kp(d),wb=new ExcelJS.Workbook(),MON='"S/ "#,##0.00',FEC='dd/mm/yyyy',dt=f=>new Date(f+'T12:00:00'),L={style:'thin',color:{argb:'FFBBBBBB'}},B={top:L,bottom:L,left:L,right:L},
- fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),per='Periodo: del '+fd(d.a)+' al '+fd(d.b);wb.creator='FERRETERÍA';
+ fill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),per='Periodo: del '+fd(d.a)+' al '+fd(d.b);wb.creator='FINCA CHATE';
  const base=(n,w)=>{const ws=wb.addWorksheet(n,{pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0}});ws.columns=w.map(x=>({width:x}));return ws};
  const cab=(ws,n,tit,exp)=>{ws.mergeCells(1,1,1,n);const t=ws.getCell(1,1);t.value=tit+' — '+empT();t.font={bold:true,size:16};ws.mergeCells(2,1,2,n);const e=ws.getCell(2,1);e.value=exp+'  ('+per+')';e.font={italic:true,size:11,color:{argb:'FF444444'}};e.alignment={wrapText:true,vertical:'top'};ws.getRow(2).height=48};
  const hoja=(n,tit,exp,cols,rows)=>{const ws=base(n,cols.map(c=>c.w));cab(ws,cols.length,tit,exp);const h=ws.getRow(4);h.height=34;
@@ -207,23 +280,27 @@ async function excel(){if(typeof ExcelJS=='undefined')throw new Error('No cargó
   if(!rows.length)ws.addRow(['Sin registros en este periodo']);else{const tr=ws.addRow(cols.map((c,i)=>c.s?sum(rows.filter(r=>!r.anu),c.s):i==0?'TOTAL (solo registros válidos)':''));tr.height=24;
    tr.eachCell({includeEmpty:true},(x,i)=>{const c=cols[i-1];x.font={bold:true,size:12};x.fill=fill('FFFDE7B0');x.border=B;if(c&&c.s)x.numFmt=c.f||'General'})}
   ws.views=[{state:'frozen',ySplit:4}];ws.autoFilter={from:{row:4,column:1},to:{row:4+rows.length,column:cols.length}}};
- const rs=base('Resumen',[36,20,80]);cab(rs,3,'REPORTE DE CONTROL','Resumen General.');
+ const rs=base('Resumen',[36,20,80]);cab(rs,3,'REPORTE DE CONTROL','Este archivo reúne todos los movimientos de la finca, uno por hoja. Los registros anulados aparecen tachados y NO se suman en los totales. Cada hoja tiene filtros en los títulos de las columnas.');
  const sec=t=>{const r=rs.addRow([t]);rs.mergeCells(r.number,1,r.number,3);r.getCell(1).font={bold:true,size:13};r.getCell(1).fill=fill('FFFDE7B0');r.height=24};
  const fila=(a,m,c,f)=>{const r=rs.addRow([a,m,c]);r.height=26;r.eachCell({includeEmpty:true},(x,i)=>{x.border=B;x.alignment={vertical:'middle',wrapText:true,horizontal:i==2?'right':'left'};x.font={size:11,bold:i==1}});if(f)r.getCell(2).numFmt=f};
- rs.addRow([]);sec('RESUMEN DEL PERIODO');fila('Volquetadas vendidas',k.vq,'Cantidad total de viajes de material vendidos.','0');KL.forEach(([n,key,desc])=>fila(n,k[key],desc,MON));
- fila('Horas extra pendientes de pago',k.hpen,'Horas extra registradas que todavía no se pagan (a S/ '+(+D.hext).toFixed(2)+' la hora).','0.0');
- rs.addRow([]);sec('VOLQUETADAS POR MATERIAL');const por={};d.V.filter(x=>!x.anu).forEach(x=>por[x.mat]=(por[x.mat]||0)+x.q);Object.entries(por).forEach(([m,q])=>fila(m,q,'volquetadas vendidas','0'));
- rs.addRow([]);sec('QUÉ HAY EN CADA HOJA');[['Ventas','Cada volquetada vendida: material, cantidad, precio, chofer, forma de cobro y comprobante.'],['Gasolina','Cada recibo de combustible. La foto de cada recibo está guardada en el sistema.'],['Mantenimiento','Gastos de reparación y mantenimiento de las máquinas, con su comprobante.'],['Asistencia','Hora de entrada, salida, horas trabajadas y horas extra de cada trabajador por día.'],['Pagos personal','Sueldos, adelantos y pagos de horas extra entregados, con método y constancia.'],['Por trabajador','Resumen de cada trabajador en el periodo: días, horas y lo que se le pagó.'],['Anulaciones','Registros anulados con el motivo. Nada se borra: todo queda para auditoría.']].forEach(([a,b])=>fila(a,'',b));
- hoja('Ventas','VENTAS DE MATERIAL',' ',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Hora',w:8,k:x=>x.h},{h:'Material',w:20,k:x=>x.mat},{h:'Volquetadas',w:12,k:x=>x.q,f:'0',al:'center',s:x=>x.q},{h:'Precio por volquetada',w:14,k:x=>x.p,f:MON},{h:'Total de la venta',w:16,k:x=>x.tot,f:MON,s:x=>x.tot},{h:'Chofer',w:16,k:x=>x.c},{h:'Método de pago',w:14,k:x=>x.met||''},{h:'Estado del cobro',w:16,k:cobT},{h:'Cliente / RUC / DNI',w:22,k:x=>x.cli||''},{h:'N° de comprobante',w:16,k:x=>x.comp||''},{h:'Estado del registro',w:28,k:estC}],d.V);
- hoja('Gasolina','GASOLINA',' ',[{h:'Fecha del recibo',w:14,k:x=>dt(x.f),f:FEC},{h:'Chofer / trabajador',w:20,k:x=>x.c},{h:'Vehículo',w:18,k:x=>x.m},{h:'Galones',w:11,k:x=>x.gal||'',f:'0.00',al:'center',s:x=>x.gal||0},{h:'Monto pagado',w:15,k:x=>x.mon,f:MON,s:x=>x.mon},{h:'N° recibo / factura',w:18,k:x=>x.n||''},{h:'Foto del recibo',w:16,k:x=>'Sí, guardada'},{h:'Estado del registro',w:28,k:estC}],d.G);
- hoja('Mantenimiento','MANTENIMIENTO DE MAQUINARIA',' ',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Máquina',w:18,k:x=>x.m},{h:'Tipo',w:20,k:x=>x.t},{h:'Descripción del trabajo',w:34,k:x=>x.d},{h:'Proveedor / comprobante',w:24,k:x=>x.p||''},{h:'Costo',w:15,k:x=>x.mon,f:MON,s:x=>x.mon},{h:'Foto del comprobante',w:16,k:x=>'Sí, guardada'},{h:'Estado del registro',w:28,k:estC}],d.M);
- hoja('Asistencia','ASISTENCIA Y HORAS EXTRA',' ',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Trabajador',w:20,k:x=>x.c},{h:'Hora de entrada',w:12,k:x=>x.e,al:'center'},{h:'Hora de salida',w:12,k:x=>x.s||'(sin salida)',al:'center'},{h:'Horas trabajadas',w:12,k:x=>+hrs(x).toFixed(2),f:'0.00',al:'center',s:x=>hrs(x)},{h:'Horas extra',w:11,k:x=>x.h,f:'0.0',al:'center',s:x=>x.h},{h:'Pago por horas extra',w:16,k:x=>x.h*D.hext,f:MON,s:x=>x.h*D.hext},{h:'Estado de las horas extra',w:24,k:exT}],d.A);
- hoja('Pagos personal','PAGOS AL PERSONAL',' ',[{h:'Fecha del pago',w:14,k:x=>dt(x.f),f:FEC},{h:'Trabajador',w:20,k:x=>x.c},{h:'Tipo de pago',w:16,k:x=>x.t},{h:'Periodo que se paga',w:16,k:x=>x.per||''},{h:'Monto',w:15,k:x=>x.mon,f:MON,s:x=>x.mon},{h:'Método',w:14,k:x=>x.met||''},{h:'N° constancia',w:16,k:x=>x.n||''},{h:'Nota',w:26,k:x=>x.nota||''},{h:'Estado del registro',w:28,k:estC}],d.PG);
- hoja('Por trabajador','RESUMEN POR TRABAJADOR',' ',[{h:'Trabajador',w:22,k:r=>r.c},{h:'Días asistidos',w:12,k:r=>r.dias,al:'center',f:'0',s:r=>r.dias},{h:'Horas trabajadas',w:14,k:r=>+r.ht.toFixed(2),f:'0.00',al:'center',s:r=>r.ht},{h:'Horas extra',w:12,k:r=>r.he,f:'0.0',al:'center',s:r=>r.he},{h:'Sueldo pagado',w:15,k:r=>r.su,f:MON,s:r=>r.su},{h:'Adelantos',w:15,k:r=>r.ad,f:MON,s:r=>r.ad},{h:'Horas extra pagadas',w:17,k:r=>r.ep,f:MON,s:r=>r.ep},{h:'Total pagado',w:15,k:r=>r.su+r.ad+r.ep,f:MON,s:r=>r.su+r.ad+r.ep},{h:'Horas extra por pagar',w:18,k:r=>r.pen,f:MON,s:r=>r.pen}],
-  D.chof.map(c=>{const r=d.A.filter(x=>x.c==c),p=t=>sum(d.PG.filter(x=>x.c==c&&x.t==t&&!x.anu),x=>x.mon);return{c,dias:r.length,ht:sum(r,hrs),he:sum(r,x=>x.h),su:p('Sueldo'),ad:p('Adelanto'),ep:p('Horas extra'),pen:sum(r.filter(x=>!x.pag),x=>x.h)*D.hext}}));
- const an=[...d.V.map(x=>({t:'Venta',f:x.f,d:x.mat+' x'+x.q,m:x.tot,an:x.anu})),...d.G.map(x=>({t:'Gasolina',f:x.f,d:x.m+' · '+x.c,m:x.mon,an:x.anu})),...d.M.map(x=>({t:'Mantenimiento',f:x.f,d:x.m+' · '+x.d,m:x.mon,an:x.anu})),...d.PG.map(x=>({t:'Pago '+x.t,f:x.f,d:x.c,m:x.mon,an:x.anu}))].filter(x=>x.an);
- hoja('Anulaciones','REGISTROS ANULADOS',' ',[{h:'Tipo',w:18,k:r=>r.t},{h:'Fecha del registro',w:16,k:r=>dt(r.f),f:FEC},{h:'Detalle',w:36,k:r=>r.d},{h:'Monto anulado',w:16,k:r=>r.m,f:MON,s:r=>r.m},{h:'Motivo',w:34,k:r=>r.an.m},{h:'Anulado el',w:18,k:r=>r.an.t.slice(0,16).replace('T',' ')}],an);
- const buf=await wb.xlsx.writeBuffer();dlb(`FERRETERÍA_${d.a}_a_${d.b}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));toast('Excel descargado')}
+ rs.addRow([]);sec('RESUMEN DEL PERIODO');fila('Camiones de 10 cúbicos vendidos',k.cam,'Cantidad de camiones vendidos (entrega).','0');fila('Cúbicos vendidos por cúbico',k.cub,'Cúbicos que las ferreterías recogieron.','0.0');
+ KL.forEach(([n,key,desc])=>fila(n,k[key],desc,MON));fila('Horas extra pendientes de pago',k.hpen,'Horas extra registradas que todavía no se pagan (a S/ '+(+D.hext).toFixed(2)+' la hora).','0.0');
+ rs.addRow([]);sec('MATERIAL VENDIDO (importe en soles; el detalle por camión/cúbico está en la hoja Material)');matTab(d).forEach(r=>fila(r.n,r.tot,r.cam+' camiones + '+r.cub+' cúbicos = '+r.m3+' m³',MON));
+ rs.addRow([]);sec('QUÉ HAY EN CADA HOJA');[['Ventas','Cada venta: camión de 10 cúbicos o por cúbico, material, precio, cliente, destino y cobro.'],['Material','Cuánto se vendió de cada material en camiones y cúbicos.'],['Alquiler','Alquiler de maquinaria por horas.'],['Por cobrar','Deudas pendientes HOY con los días que lleva cada una.'],['Cobros de deudas','Pagos recibidos de clientes que debían.'],['Petróleo','Cada recibo de petróleo. La foto está guardada en el sistema.'],['Mantenimiento','Gastos de mantenimiento de las máquinas, con su comprobante.'],['Policía','Pagos registrados a policía.'],['Asistencia','Entrada, salida, horas, horas extra y comidas por trabajador y día.'],['Pagos personal','Sueldos, adelantos y horas extra entregados.'],['Por trabajador','Resumen de cada trabajador en el periodo.'],['Anulaciones','Registros anulados con su motivo. Nada se borra.']].forEach(([a,b])=>fila(a,'',b));
+ hoja('Ventas','VENTAS DE MATERIAL','Una fila por venta. "Estado del cobro" muestra si ya se pagó o cuánto debe el cliente (fiado).',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Hora',w:8,k:x=>x.h},{h:'Modalidad',w:20,k:x=>x.mod=='cubico'?'Por cúbico (recojo)':'Camión 10 cúbicos'},{h:'Material',w:20,k:x=>x.mat},{h:'Cantidad',w:10,k:x=>x.q,f:'0.0',al:'center'},{h:'Unidad',w:10,k:x=>x.mod=='cubico'?'cúbicos':'camiones'},{h:'Precio unitario',w:14,k:x=>x.p,f:MON},{h:'Total',w:15,k:x=>x.tot,f:MON,s:x=>x.tot},{h:'Destino',w:18,k:x=>x.dest||''},{h:'Chofer',w:16,k:x=>x.c||''},{h:'Cliente',w:22,k:x=>x.cli||''},{h:'N° comprobante',w:16,k:x=>x.comp||''},{h:'Método de pago',w:14,k:x=>x.met||''},{h:'Estado del cobro',w:20,k:cobT},{h:'Estado del registro',w:26,k:estC}],d.V);
+ hoja('Material','MATERIAL VENDIDO','Total vendido de cada material. Un camión equivale a 10 cúbicos (m³).',[{h:'Material',w:24,k:r=>r.n},{h:'Camiones',w:12,k:r=>r.cam,f:'0.0',al:'center',s:r=>r.cam},{h:'Cúbicos sueltos',w:14,k:r=>r.cub,f:'0.0',al:'center',s:r=>r.cub},{h:'Total en m³',w:12,k:r=>r.m3,f:'0.0',al:'center',s:r=>r.m3},{h:'Importe',w:16,k:r=>r.tot,f:MON,s:r=>r.tot}],matTab(d));
+ hoja('Alquiler','ALQUILER DE MAQUINARIA','Una fila por alquiler: máquina, horas, precio por hora y cobro.',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Máquina',w:20,k:x=>x.maq},{h:'Horas',w:9,k:x=>x.hr,f:'0.0',al:'center',s:x=>x.hr},{h:'Precio por hora',w:14,k:x=>x.p,f:MON},{h:'Total',w:15,k:x=>x.tot,f:MON,s:x=>x.tot},{h:'Operador',w:16,k:x=>x.c||''},{h:'Cliente',w:22,k:x=>x.cli||''},{h:'N° comprobante',w:16,k:x=>x.comp||''},{h:'Método',w:14,k:x=>x.met||''},{h:'Estado del cobro',w:20,k:cobT},{h:'Estado del registro',w:26,k:estC}],d.AL);
+ hoja('Por cobrar','DEUDAS POR COBRAR (a hoy)','Todo lo que le deben, de cualquier fecha, con los días que lleva cada deuda. No depende del periodo.',[{h:'Cliente',w:24,k:r=>r.cli},{h:'Fecha de la deuda',w:16,k:r=>dt(r.f),f:FEC},{h:'Días de deuda',w:12,k:r=>r.dias,f:'0',al:'center'},{h:'Detalle',w:30,k:r=>r.det},{h:'Total',w:14,k:r=>r.tot,f:MON,s:r=>r.tot},{h:'Ya pagó',w:14,k:r=>r.ab,f:MON,s:r=>r.ab},{h:'Debe',w:14,k:r=>r.sal,f:MON,s:r=>r.sal}],deudas());
+ hoja('Cobros de deudas','PAGOS RECIBIDOS DE DEUDAS','Cada pago (total o parcial) que un cliente hizo por una venta o alquiler a crédito.',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Cliente',w:24,k:x=>x.cli},{h:'Por qué',w:26,k:x=>x.det},{h:'Monto pagado',w:15,k:x=>x.mon,f:MON,s:x=>x.mon},{h:'Método',w:14,k:x=>x.met||''},{h:'Nota',w:26,k:x=>x.nota||''},{h:'Estado del registro',w:26,k:estC}],d.AB);
+ hoja('Petróleo','PETRÓLEO','Una fila por recibo. Cada recibo tiene su foto guardada (se ve en el PDF con fotos).',[{h:'Fecha del recibo',w:14,k:x=>dt(x.f),f:FEC},{h:'Trabajador',w:20,k:x=>x.c},{h:'Máquina',w:18,k:x=>x.m},{h:'Galones',w:11,k:x=>x.gal||'',f:'0.00',al:'center',s:x=>x.gal||0},{h:'Monto pagado',w:15,k:x=>x.mon,f:MON,s:x=>x.mon},{h:'N° recibo / factura',w:18,k:x=>x.n||''},{h:'Foto del recibo',w:16,k:x=>'Sí, guardada'},{h:'Estado del registro',w:26,k:estC}],d.G);
+ hoja('Mantenimiento','MANTENIMIENTO DE MAQUINARIA','Una fila por gasto. Cada comprobante tiene su foto guardada.',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Máquina',w:18,k:x=>x.m},{h:'Mantenimiento',w:24,k:x=>x.t},{h:'Detalle',w:30,k:x=>x.d||''},{h:'Proveedor / comprobante',w:24,k:x=>x.p||''},{h:'Costo',w:15,k:x=>x.mon,f:MON,s:x=>x.mon},{h:'Foto del comprobante',w:16,k:x=>'Sí, guardada'},{h:'Estado del registro',w:26,k:estC}],d.M);
+ hoja('Policía','PAGOS A POLICÍA','Una fila por pago registrado.',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Concepto',w:28,k:x=>x.con},{h:'Policía',w:22,k:x=>x.pol||''},{h:'Monto',w:15,k:x=>x.mon,f:MON,s:x=>x.mon},{h:'Nota',w:30,k:x=>x.nota||''},{h:'Estado del registro',w:26,k:estC}],d.PO);
+ hoja('Asistencia','ASISTENCIA, HORAS EXTRA Y COMIDAS','Una fila por trabajador y día. "Pago por horas extra" usa la tarifa configurada.',[{h:'Fecha',w:12,k:x=>dt(x.f),f:FEC},{h:'Trabajador',w:20,k:x=>x.c},{h:'Entrada',w:10,k:x=>x.e,al:'center'},{h:'Salida',w:12,k:x=>x.s||'(sin salida)',al:'center'},{h:'Horas trabajadas',w:12,k:x=>+hrs(x).toFixed(2),f:'0.00',al:'center',s:x=>hrs(x)},{h:'Horas extra',w:11,k:x=>x.h,f:'0.0',al:'center',s:x=>x.h},{h:'Pago por horas extra',w:16,k:x=>x.h*D.hext,f:MON,s:x=>x.h*D.hext},{h:'Estado horas extra',w:22,k:exT},{h:'Desayuno',w:11,k:x=>SN(x.d),al:'center'},{h:'Almuerzo',w:11,k:x=>SN(x.a),al:'center'}],d.A);
+ hoja('Pagos personal','PAGOS AL PERSONAL','Sueldos, adelantos y horas extra son pagos separados.',[{h:'Fecha del pago',w:14,k:x=>dt(x.f),f:FEC},{h:'Trabajador',w:20,k:x=>x.c},{h:'Tipo de pago',w:16,k:x=>x.t},{h:'Periodo',w:14,k:x=>x.per||''},{h:'Monto',w:15,k:x=>x.mon,f:MON,s:x=>x.mon},{h:'Método',w:14,k:x=>x.met||''},{h:'N° constancia',w:16,k:x=>x.n||''},{h:'Nota',w:26,k:x=>x.nota||''},{h:'Estado del registro',w:26,k:estC}],d.PG);
+ hoja('Por trabajador','RESUMEN POR TRABAJADOR','Días, horas, comidas y todo lo que se le pagó en el periodo.',[{h:'Trabajador',w:22,k:r=>r.c},{h:'Días asistidos',w:12,k:r=>r.dias,f:'0',al:'center',s:r=>r.dias},{h:'Horas trabajadas',w:14,k:r=>+r.ht.toFixed(2),f:'0.00',al:'center',s:r=>r.ht},{h:'Horas extra',w:12,k:r=>r.he,f:'0.0',al:'center',s:r=>r.he},{h:'Desayunos',w:11,k:r=>r.de,f:'0',al:'center',s:r=>r.de},{h:'Almuerzos',w:11,k:r=>r.al,f:'0',al:'center',s:r=>r.al},{h:'Sueldo pagado',w:15,k:r=>r.su,f:MON,s:r=>r.su},{h:'Adelantos',w:14,k:r=>r.ad,f:MON,s:r=>r.ad},{h:'Horas extra pagadas',w:17,k:r=>r.ep,f:MON,s:r=>r.ep},{h:'Total pagado',w:15,k:r=>r.su+r.ad+r.ep,f:MON,s:r=>r.su+r.ad+r.ep},{h:'Horas extra por pagar',w:18,k:r=>r.pen,f:MON,s:r=>r.pen}],perT(d));
+ const an=[...d.V.map(x=>({t:'Venta',f:x.f,d:x.mat+' · '+cant(x),m:x.tot,an:x.anu})),...d.AL.map(x=>({t:'Alquiler',f:x.f,d:x.maq+' · '+x.hr+' h',m:x.tot,an:x.anu})),...d.AB.map(x=>({t:'Cobro de deuda',f:x.f,d:x.cli,m:x.mon,an:x.anu})),...d.G.map(x=>({t:'Petróleo',f:x.f,d:x.m+' · '+x.c,m:x.mon,an:x.anu})),...d.M.map(x=>({t:'Mantenimiento',f:x.f,d:x.m+' · '+x.t,m:x.mon,an:x.anu})),...d.PO.map(x=>({t:'Policía',f:x.f,d:x.con,m:x.mon,an:x.anu})),...d.PG.map(x=>({t:'Pago '+x.t,f:x.f,d:x.c,m:x.mon,an:x.anu}))].filter(x=>x.an);
+ hoja('Anulaciones','REGISTROS ANULADOS','Nada se borra. Lo que se anuló queda aquí con su motivo y la fecha en que se anuló.',[{h:'Tipo',w:18,k:r=>r.t},{h:'Fecha del registro',w:16,k:r=>dt(r.f),f:FEC},{h:'Detalle',w:36,k:r=>r.d},{h:'Monto anulado',w:16,k:r=>r.m,f:MON,s:r=>r.m},{h:'Motivo',w:34,k:r=>r.an.m},{h:'Anulado el',w:18,k:r=>r.an.t.slice(0,16).replace('T',' ')}],an);
+ const buf=await wb.xlsx.writeBuffer();dlb(`CHATE_${d.a}_a_${d.b}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));toast('Excel descargado')}
 const fotoURL=async id=>{try{const r=await fetch('/api?a=foto&id='+id);if(!r.ok)return'';const b=await r.blob();return await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)})}catch(e){return''}};
 async function pdf(){const w=window.open('','_blank');if(!w)return toast('Permite las ventanas emergentes para ver el reporte',1);
  w.document.write('<body style="font:18px sans-serif;padding:30px">Preparando el reporte con fotos… no cierres esta ventana.</body>');
@@ -234,13 +311,18 @@ async function pdf(){const w=window.open('','_blank');if(!w)return toast('Permit
  const css='@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font:12px Arial,sans-serif;color:#111;margin:0}h1{font-size:20px;border-bottom:3px solid #f5a524;padding-bottom:6px}h2{font-size:15px;background:#f5a524;padding:5px 8px;margin:18px 0 8px;page-break-after:avoid}table{width:100%;border-collapse:collapse;margin-bottom:8px}th,td{border:1px solid #999;padding:4px 5px;text-align:left}th{background:#eee}tr{page-break-inside:avoid}.an{color:#888;text-decoration:line-through}.fi{display:flex;gap:12px;border:1px solid #999;padding:8px;margin:8px 0;page-break-inside:avoid}.fd{flex:1;line-height:1.6}.fd span{color:#555}.fi img{max-width:260px;max-height:300px;object-fit:contain;border:1px solid #ccc}.nf{width:200px;color:#999}.fm{display:flex;justify-content:space-around;margin-top:60px;text-align:center}.np{padding:10px;background:#eee}@media print{.np{display:none}}';
  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Reporte ${d.a} a ${d.b}</title><style>${css}</style></head><body><div class="np"><button onclick="print()" style="font-size:16px;padding:10px 16px">🖨 Imprimir / Guardar como PDF</button></div>
 <h1>REPORTE DE CONTROL — ${E(empT())}</h1><p>Periodo: <b>${fd(d.a)} al ${fd(d.b)}</b> · Generado: ${new Date().toLocaleString('es-PE')}</p>
-<h2>1. Resumen</h2>${t(['Concepto','Monto'],[{c:['Volquetadas vendidas',k.vq]},...KL.map(([n,key])=>({c:[n,S(k[key])]})),{c:['Horas extra pendientes de pago',k.hpen+' h = '+S(k.hpen*D.hext)]}])}
-<h2>2. Ventas</h2>${t(['Fecha','Hora','Material','Cant.','Precio','Total','Chofer','Pago','Cliente/RUC','Comprobante','Estado'],d.V.map(x=>rw(x,[fd(x.f),x.h,E(x.mat),x.q,S(x.p),S(x.tot),E(x.c),E(x.met||''),E(x.cli||''),E(x.comp||''),E(x.anu?'ANULADO: '+x.anu.m:cobT(x))])))}${tl(d.V,x=>x.tot)}
-<h2>3. Gasolina (con foto del recibo)</h2>${d.G.map(x=>fi(x,fd(x.f)+' · '+S(x.mon),[['Chofer',E(x.c)],['Vehículo',E(x.m)],['Galones',x.gal||'-'],['N° recibo',E(x.n||'-')]])).join('')||'<p>Sin registros</p>'}${tl(d.G,x=>x.mon)}
-<h2>4. Mantenimiento (con foto del comprobante)</h2>${d.M.map(x=>fi(x,fd(x.f)+' · '+S(x.mon),[['Máquina',E(x.m)],['Tipo',E(x.t)],['Trabajo',E(x.d)],['Proveedor/comprobante',E(x.p||'-')]])).join('')||'<p>Sin registros</p>'}${tl(d.M,x=>x.mon)}
-<h2>5. Asistencia y horas extra</h2>${t(['Fecha','Trabajador','Entrada','Salida','Horas trab.','H. extra','Pago extra','Estado extra'],d.A.map(x=>rw(x,[fd(x.f),E(x.c),x.e,x.s||'-',hrs(x).toFixed(2),x.h,S(x.h*D.hext),exT(x)])))}
-<h2>6. Pagos al personal</h2>${t(['Fecha','Trabajador','Tipo','Periodo','Monto','Método','Constancia','Nota','Estado'],d.PG.map(x=>rw(x,[fd(x.f),E(x.c),x.t,x.per||'',S(x.mon),E(x.met||''),E(x.n||''),E(x.nota||''),E(x.anu?'ANULADO: '+x.anu.m:'VÁLIDO')])))}${tl(d.PG,x=>x.mon)}
-<p style="margin-top:20px;color:#555">Documento generado por FERRETERÍA. Los registros no se pueden borrar: solo se anulan con motivo y quedan en la auditoría del sistema.</p>
+<h2>1. Resumen</h2>${t(['Concepto','Monto'],[{c:['Camiones de 10 cúbicos vendidos',k.cam]},{c:['Cúbicos vendidos por cúbico',k.cub]},...KL.map(([n,key])=>({c:[n,S(k[key])]})),{c:['Horas extra pendientes de pago',k.hpen+' h = '+S(k.hpen*D.hext)]}])}
+<h2>2. Material vendido</h2>${t(['Material','Camiones','Cúbicos','Total m³','Importe'],matTab(d).map(r=>({c:[E(r.n),r.cam,r.cub,r.m3,S(r.tot)]})))}
+<h2>3. Ventas</h2>${t(['Fecha','Hora','Material','Cantidad','Precio','Total','Destino / chofer','Cliente','Comprobante','Estado'],d.V.map(x=>rw(x,[fd(x.f),x.h,E(x.mat),cant(x),S(x.p),S(x.tot),E([x.dest,x.c].filter(Boolean).join(' · ')),E(x.cli||''),E(x.comp||''),E(x.anu?'ANULADO: '+x.anu.m:cobT(x))])))}${tl(d.V,x=>x.tot)}
+<h2>4. Alquiler de maquinaria</h2>${t(['Fecha','Máquina','Horas','Precio/hora','Total','Operador','Cliente','Estado'],d.AL.map(x=>rw(x,[fd(x.f),E(x.maq),x.hr,S(x.p),S(x.tot),E(x.c||''),E(x.cli||''),E(x.anu?'ANULADO: '+x.anu.m:cobT(x))])))}${tl(d.AL,x=>x.tot)}
+<h2>5. Deudas por cobrar (a hoy)</h2>${t(['Cliente','Fecha','Días','Detalle','Total','Pagó','Debe'],deudas().map(x=>({c:[E(x.cli),fd(x.f),x.dias,E(x.det),S(x.tot),S(x.ab),S(x.sal)]})))}
+<h2>6. Pagos recibidos de deudas</h2>${t(['Fecha','Cliente','Por qué','Monto','Método'],d.AB.map(x=>rw(x,[fd(x.f),E(x.cli),E(x.det),S(x.mon),E(x.met||'')])))}${tl(d.AB,x=>x.mon)}
+<h2>7. Petróleo (con foto del recibo)</h2>${d.G.map(x=>fi(x,fd(x.f)+' · '+S(x.mon),[['Trabajador',E(x.c)],['Máquina',E(x.m)],['Galones',x.gal||'-'],['N° recibo',E(x.n||'-')]])).join('')||'<p>Sin registros</p>'}${tl(d.G,x=>x.mon)}
+<h2>8. Mantenimiento (con foto del comprobante)</h2>${d.M.map(x=>fi(x,fd(x.f)+' · '+S(x.mon),[['Máquina',E(x.m)],['Mantenimiento',E(x.t)],['Detalle',E(x.d||'-')],['Proveedor/comprobante',E(x.p||'-')]])).join('')||'<p>Sin registros</p>'}${tl(d.M,x=>x.mon)}
+<h2>9. Pagos a policía</h2>${t(['Fecha','Concepto','Policía','Monto','Nota','Estado'],d.PO.map(x=>rw(x,[fd(x.f),E(x.con),E(x.pol||''),S(x.mon),E(x.nota||''),E(estC(x))])))}${tl(d.PO,x=>x.mon)}
+<h2>10. Asistencia, horas extra y comidas</h2>${t(['Fecha','Trabajador','Entrada','Salida','Horas','H. extra','Pago extra','Estado extra','Desayuno','Almuerzo'],d.A.map(x=>rw(x,[fd(x.f),E(x.c),x.e,x.s||'-',hrs(x).toFixed(2),x.h,S(x.h*D.hext),exT(x),SN(x.d),SN(x.a)])))}
+<h2>11. Pagos al personal</h2>${t(['Fecha','Trabajador','Tipo','Periodo','Monto','Método','Constancia','Nota','Estado'],d.PG.map(x=>rw(x,[fd(x.f),E(x.c),x.t,x.per||'',S(x.mon),E(x.met||''),E(x.n||''),E(x.nota||''),E(estC(x))])))}${tl(d.PG,x=>x.mon)}
+<p style="margin-top:20px;color:#555">Documento generado por el sistema de ${E(empT())}. Los registros no se pueden borrar: solo se anulan con motivo y quedan en la auditoría del sistema.</p>
 <div class="fm"><div>______________________<br>Firma del administrador</div><div>______________________<br>V°B° Contador</div></div>
 <script>addEventListener('load',()=>setTimeout(print,500))<\/script></body></html>`;
  w.document.open();w.document.write(html);w.document.close()}catch(e){w.close();throw e}}
