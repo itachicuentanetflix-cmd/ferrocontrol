@@ -10,7 +10,7 @@ const uid = () => crypto.randomBytes(6).toString('hex');
 const LIMA = `to_char(now() at time zone 'America/Lima','YYYY-MM-DD')`;
 
 // campos que se pueden modificar después de creado un registro
-const ALLOW = { ventas: ['cob', 'est'], asis: ['e', 's', 'h', 'pag'], gas: [], mant: [], pagos: [] };
+const ALLOW = { ventas: ['cob', 'est'], alq: ['cob', 'est'], asis: ['e', 's', 'h', 'pag', 'd', 'a'], gas: [], mant: [], pagos: [], poli: [], abo: [] };
 
 function autenticado(req) {
   const m = (req.headers.cookie || '').match(/fc=([^;]+)/);
@@ -86,8 +86,8 @@ module.exports = async (req, res) => {
       const img = d.img; delete d.img; delete d.id; delete d.anu;
       const [{ f: hoy, h }] = await sql`select to_char(now() at time zone 'America/Lima','YYYY-MM-DD') as f, to_char(now() at time zone 'America/Lima','HH24:MI') as h`;
       let fecha = hoy;
+      if (['gas', 'mant', 'poli'].includes(t) && /^\d{4}-\d\d-\d\d$/.test(d.f || '')) fecha = d.f;
       if (t === 'gas' || t === 'mant') {
-        if (/^\d{4}-\d\d-\d\d$/.test(d.f || '')) fecha = d.f;
         if (!img || img.length > 900000) return bad(res, 'La foto del recibo es obligatoria');
         d.foto = 1;
       }
@@ -96,7 +96,15 @@ module.exports = async (req, res) => {
         d.h = h; d.q = +d.q; d.p = +d.p; d.tot = d.q * d.p;
         if (!(d.tot > 0)) return bad(res, 'Revisa cantidad y precio');
       }
-      if (t === 'gas' || t === 'mant' || t === 'pagos') { d.mon = +d.mon; if (!(d.mon > 0)) return bad(res, 'Monto inválido'); }
+      if (t === 'alq') {
+        d.hr = +d.hr; d.p = +d.p; d.tot = d.hr * d.p;
+        if (!(d.tot > 0)) return bad(res, 'Revisa horas y precio');
+      }
+      if (['gas', 'mant', 'pagos', 'poli', 'abo'].includes(t)) { d.mon = +d.mon; if (!(d.mon > 0)) return bad(res, 'Monto inválido'); }
+      if (t === 'abo') {
+        const rf = await sql`select 1 from registros where id=${String(d.ref)} and tipo in ('ventas','alq') and anu is null`;
+        if (!rf.length) return bad(res, 'No existe la deuda a la que se quiere abonar');
+      }
       if (t === 'asis') {
         const dup = await sql`select 1 from registros where tipo='asis' and f=${fecha} and data->>'c'=${String(d.c)}`;
         if (dup.length) return bad(res, 'Ya hay asistencia de hoy para este trabajador');
