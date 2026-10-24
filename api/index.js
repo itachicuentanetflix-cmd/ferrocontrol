@@ -13,7 +13,7 @@ const scrypt = (p, salt) => new Promise((ok, no) => crypto.scrypt(String(p), sal
 const eq = (a, b) => a.length === b.length && crypto.timingSafeEqual(a, b);
 
 // campos que se pueden modificar después de creado un registro
-const ALLOW = { ventas: ['cob', 'est'], alq: ['cob', 'est'], asis: ['e', 's', 'h', 'pag', 'd', 'a'], gas: [], mant: [], pagos: [], poli: [], com: [], abo: [] };
+const ALLOW = { ventas: ['cob', 'est'], alq: ['cob', 'est'], asis: ['e', 's', 'h', 'pag', 'd', 'a'], gas: [], mant: [], pagos: [], poli: [], com: [], abo: [], fac: [], caja: [] };
 
 function autenticado(req) {
   const m = (req.headers.cookie || '').match(/fc=([^;]+)/);
@@ -137,6 +137,63 @@ module.exports = async (req, res) => {
       return res.json({ ids });
     }
 
+    // Pasar dinero de una cuenta a otra (salida + entrada, todo o nada)
+    if (b.a === 'cajatr') {
+      const m = +b.mon, from = String(b.from || '').trim(), to = String(b.to || '').trim(), mot = String(b.mot || '').trim(), resp = String(b.resp || '').trim();
+      if (!from || !to || from === to) return bad(res, 'Elige dos cuentas distintas');
+      if (!(m > 0)) return bad(res, 'Monto inválido');
+      if (mot.length < 3 || !resp) return bad(res, 'Falta el motivo o quién lo hizo');
+      const [{ f: hoy }] = await sql`select to_char(now() at time zone 'America/Lima','YYYY-MM-DD') as f`;
+      const q = db(), a = uid(), c = uid();
+      await q.transaction([
+        q`insert into registros(id,tipo,f,data) values(${a}, 'caja', ${hoy}, ${JSON.stringify({ cta: from, mon: m, sg: -1, k: 'transf', mot: 'Pasó a ' + to + ': ' + mot, resp })}::jsonb)`,
+        q`insert into registros(id,tipo,f,data) values(${c}, 'caja', ${hoy}, ${JSON.stringify({ cta: to, mon: m, sg: 1, k: 'transf', mot: 'Vino de ' + from + ': ' + mot, resp })}::jsonb)`,
+        q`insert into auditoria(accion) values(${'Transferencia entre cuentas ' + a + ',' + c})`
+      ]);
+      return res.json({ ids: [a, c] });
+    }
+
+    // Factura: el servidor asigna el correlativo (sin saltos) y calcula IGV
+    if (b.a === 'facnew') {
+      const r = b.rec || {}, ruc = String(r.ruc || '').replace(/\D/g, ''), rs = String(r.rs || '').trim().slice(0, 200), dir = String(r.dir || '').trim().slice(0, 250);
+      const ser = /^F[A-Z0-9]{3}$/.test(String(r.ser || '')) ? r.ser : 'F001', cond = r.cond === 'Crédito' ? 'Crédito' : 'Contado', inc = r.inc !== false;
+      if (!/^(10|15|16|17|20)\d{9}$/.test(ruc)) return bad(res, 'RUC del cliente inválido');
+      if (rs.length < 3) return bad(res, 'Falta la razón social del cliente');
+      const its = Array.isArray(r.items) ? r.items.slice(0, 50) : [];
+      if (!its.length) return bad(res, 'La factura no tiene detalle');
+      const r2 = n => Math.round(n * 100) / 100, items = []; let sp = 0;
+      for (const i of its) {
+        const q = +i.q, p = +i.p;
+        if (!(q > 0 && p > 0)) return bad(res, 'Revisa cantidades y precios');
+        const vu = inc ? Math.round(p / 1.18 * 1e4) / 1e4 : p;
+        items.push({ d: String(i.d || '').slice(0, 200), u: String(i.u || 'UNIDAD').slice(0, 20), q, p, vu, vv: r2(q * vu) });
+        sp += q * p;
+      }
+      let base, igv, tot;
+      if (inc) { tot = r2(sp); base = r2(tot / 1.18); igv = r2(tot - base); }
+      else { base = r2(items.reduce((a, i) => a + i.vv, 0)); igv = r2(base * 0.18); tot = r2(base + igv); }
+      const refs = Array.isArray(r.refs) ? r.refs.map(String).slice(0, 50) : [];
+      for (const id of refs) {
+        const ok = await sql`select 1 from registros where id=${id} and tipo in ('ventas','alq') and anu is null`;
+        if (!ok.length) return bad(res, 'Una de las ventas ya no es válida');
+        const ya = await sql`select 1 from registros where tipo='fac' and anu is null and data->'refs' @> ${JSON.stringify([id])}::jsonb`;
+        if (ya.length) return bad(res, 'Una de las ventas ya fue facturada');
+      }
+      const [{ f: hoy, h }] = await sql`select to_char(now() at time zone 'America/Lima','YYYY-MM-DD') as f, to_char(now() at time zone 'America/Lima','HH24:MI:SS') as h`;
+      const d = { ser, ruc, rs, dir, cond, inc, items, base, igv, tot, refs, h };
+      for (let k = 0; k < 3; k++) {
+        const id = uid();
+        try {
+          const ins = await sql`insert into registros(id,tipo,f,data)
+            select ${id}, 'fac', ${hoy}::date, ${JSON.stringify(d)}::jsonb || jsonb_build_object('num', q.n)
+            from (select coalesce(max((data->>'num')::int),0)+1 as n from registros where tipo='fac' and data->>'ser'=${ser}) q
+            returning (data->>'num')::int as num`;
+          await aud(`Alta factura ${ser}-${String(ins[0].num).padStart(8, '0')} ${id}`);
+          return res.json({ id, ser, num: ins[0].num });
+        } catch (e) { if (!/duplicate|unique/i.test(e.message) || k === 2) throw e; }
+      }
+    }
+
     if (b.a === 'add') {
       const t = b.tipo;
       if (!Object.prototype.hasOwnProperty.call(ALLOW, t)) return bad(res, 'Tipo inválido');
@@ -158,7 +215,17 @@ module.exports = async (req, res) => {
         d.hr = +d.hr; d.p = +d.p; d.tot = d.hr * d.p;
         if (!(d.tot > 0)) return bad(res, 'Revisa horas y precio');
       }
-      if (['gas', 'mant', 'pagos', 'poli', 'com', 'abo'].includes(t)) { d.mon = +d.mon; if (!(d.mon > 0)) return bad(res, 'Monto inválido'); }
+      if (t === 'fac') return bad(res, 'Usa la acción de facturas');
+      if (t === 'caja') {
+        const sg = +d.sg === 1 ? 1 : -1, mot = String(d.mot || '').trim(), resp = String(d.resp || '').trim(), cta = String(d.cta || '').trim(), k = String(d.k || 'ajuste').slice(0, 20);
+        const ant = d.ant, nuevo = d.nuevo;
+        if (mot.length < 3 || !resp || !cta) return bad(res, 'Falta el motivo, la cuenta o quién lo hizo');
+        for (const key of Object.keys(d)) delete d[key];
+        Object.assign(d, { cta, mon: +b.rec.mon, sg, k, mot, resp });
+        if (isFinite(+ant) && ant !== null && ant !== '') d.ant = +ant;
+        if (isFinite(+nuevo) && nuevo !== null && nuevo !== '') d.nuevo = +nuevo;
+      }
+      if (['gas', 'mant', 'pagos', 'poli', 'com', 'abo', 'caja'].includes(t)) { d.mon = +d.mon; if (!(d.mon > 0)) return bad(res, 'Monto inválido'); }
       if (t === 'abo') {
         const rf = await sql`select 1 from registros where id=${String(d.ref)} and tipo in ('ventas','alq') and anu is null`;
         if (!rf.length) return bad(res, 'No existe la deuda a la que se quiere abonar');
