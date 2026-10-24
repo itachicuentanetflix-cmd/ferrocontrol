@@ -6,7 +6,7 @@ create table if not exists config (
   v jsonb not null
 );
 
--- Todos los movimientos: ventas, alquileres, cobros, gasolina, mantenimiento, policía, comidas, asistencia y pagos
+-- Todos los movimientos: ventas, alquileres, cobros, gasolina, mantenimiento, policía, comidas, asistencia, pagos, facturas y movimientos de caja
 create table if not exists registros (
   id text primary key,
   tipo text not null,
@@ -29,8 +29,11 @@ begin
     execute format('alter table registros drop constraint %I', c.conname);
   end loop;
   alter table registros add constraint registros_tipo_check
-    check (tipo in ('ventas','alq','abo','gas','mant','poli','com','asis','pagos'));
+    check (tipo in ('ventas','alq','abo','gas','mant','poli','com','asis','pagos','fac','caja'));
 end $$;
+
+-- Facturas: nunca puede repetirse una serie + número (correlativo sin saltos ni duplicados)
+create unique index if not exists fac_serie_num on registros ((data->>'ser'), ((data->>'num')::int)) where tipo = 'fac';
 
 -- Fotos de recibos (gasolina y mantenimiento)
 create table if not exists fotos (
