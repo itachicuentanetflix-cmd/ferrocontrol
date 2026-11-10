@@ -235,7 +235,7 @@ return `<div class="card"><h3>Stock de materiales</h3><div class="kp"><div><smal
 <div class="wrap" style="margin-top:10px"><table><tr><th>Material</th><th>Volquetes</th><th>m³ / metros</th><th>Palas</th><th>Valor aprox.</th><th>Ingresado</th><th>Vendido</th></tr>${R.map(r=>`<tr><td><b>${E(r.n)}</b></td><td class="mn ${r.m3<0?'red':''}"><b>${n2(r.vol)}</b></td><td class="mn ${r.m3<0?'red':''}">${n2(r.m3)}</td><td class="mn">${n2(r.pal)}</td><td class="mn grn">${S(r.val)}</td><td class="mn mut">${n2(r.ing)} m³</td><td class="mn mut">${n2(r.ven)} m³</td></tr>`).join('')||'<tr><td colspan="7">Sin materiales</td></tr>'}</table></div>
 <div class="mut" style="margin-top:8px">Solo informativo. Cada venta descuenta sola el stock (camión = ${n2(D.eq.volq)} m³). El valor es aproximado: volquetes × precio del camión (o m³ × precio por cúbico si no hay precio de camión). Si anulas una venta, el stock vuelve solo.</div>
 ${can('stkreg')?'<button class="sm" style="margin-top:8px" onclick="go(\'stkreg\')">✍️ Registrar stock</button> ':''}${can('stkadj')?'<button class="sm" style="margin-top:8px" onclick="go(\'stkadj\')">🛠 Ajuste directo</button>':''}</div>
-<div class="card"><h3>Quién actualizó el stock</h3>${flt('stk')}<div class="wrap" style="margin-top:8px"><table><tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Material</th><th>Cantidad</th><th>Equivale</th><th>Tipo</th><th></th></tr>${ms.map(x=>`<tr class="${x.anu?'void':''}"><td>${fd(x.f)}</td><td class="mn">${t8(x.h)}</td><td><b>${E(x.by||'')}</b></td><td>${E(x.mat)}</td><td class="mn ${x.sg<0?'red':'grn'}"><b>${x.sg<0?'−':'+'}${n2(x.q)} ${E(x.u)}</b></td><td class="mn">${x.sg<0?'−':'+'}${n2(x.m3)} m³</td><td>${x.k=='ajuste'?'Ajuste: '+E(x.mot||''):'Relleno'}</td><td>${x.anu?'Anulado':can('stkadj')?`<button class="sm" onclick="act(()=>anular('stk','${x.id}'))">Anular</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8">Sin movimientos de stock en este periodo</td></tr>'}</table></div></div>`},
+<div class="card"><h3>Quién actualizó el stock</h3>${flt('stk')}<div class="wrap" style="margin-top:8px"><table><tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Material</th><th>Cantidad</th><th>Equivale</th><th>Tipo</th><th></th></tr>${ms.map(x=>`<tr class="${x.anu?'void':''}"><td>${fd(x.f)}</td><td class="mn">${t8(x.h)}</td><td><b>${E(x.by||'')}</b></td><td>${E(x.mat)}</td><td class="mn ${x.sg<0?'red':'grn'}"><b>${x.sg<0?'−':'+'}${n2(x.q)} ${E(x.u)}</b></td><td class="mn">${x.sg<0?'−':'+'}${n2(x.m3)} m³</td><td>${x.k=='ajuste'?'Ajuste: '+E(x.mot||''):'Relleno'}</td><td>${botonCalculo(x)} ${x.anu?'Anulado':can('stkadj')?`<button class="sm" onclick="act(()=>anular('stk','${x.id}'))">Anular</button>`:''}</td></tr>${filaCalculo(x,8)}`).join('')||'<tr><td colspan="8">Sin movimientos de stock en este periodo</td></tr>'}</table></div></div>`},
 stkreg(){const me=D.me?(D.me.nom||D.me.u):'',mine=D.stk.filter(r=>!r.anu&&r.k!='ajuste'&&r.by==me).slice().reverse().slice(0,20),m=D.mats[sk.mat];
 return `<div class="card"><h3>Registrar stock que se llenó</h3><div class="mut">Elige el material, la unidad y cuánto se llenó. Aquí no hay precios.</div>
 <label>1. ¿Qué material se llenó?</label><div class="grid">${D.mats.map((x,i)=>`<button class="${i==sk.mat?'on':''}" onclick="sk.mat=${i};render()">${E(x.n)}</button>`).join('')}</div>
@@ -244,7 +244,7 @@ return `<div class="card"><h3>Registrar stock que se llenó</h3><div class="mut"
 <input type="number" inputmode="decimal" min="0" step="0.5" style="margin-top:8px" placeholder="Otra cantidad" value="${E(sk.q)}" oninput="sk.q=this.value;skp()">
 <div class="mut" style="margin-top:8px" id="skp">${skpv()}</div>
 <button class="pri" onclick="act(stkGuardar)">GUARDAR STOCK</button></div>
-<div class="card"><h3>Lo que yo registré</h3>${mine.length?`<div class="wrap"><table><tr><th>Fecha</th><th>Hora</th><th>Material</th><th>Cantidad</th></tr>${mine.map(x=>`<tr><td>${fd(x.f)}</td><td class="mn">${t8(x.h)}</td><td>${E(x.mat)}</td><td class="mn grn"><b>+${n2(x.q)} ${E(x.u)}</b></td></tr>`).join('')}</table></div>`:'<div class="mut">Todavía no registraste nada</div>'}</div>`},
+<div class="card"><h3>Lo que yo registré</h3>${mine.length?`<div class="wrap"><table><tr><th>Fecha</th><th>Hora</th><th>Material</th><th>Cantidad</th></tr>${mine.map(x=>`<tr><td>${fd(x.f)}</td><td class="mn">${t8(x.h)}</td><td>${E(x.mat)}</td><td class="mn grn"><b>+${n2(x.q)} ${E(x.u)}</b><div style="margin-top:5px">${botonCalculo(x)}</div></td></tr>${filaCalculo(x,4)}`).join('')}</table></div>`:'<div class="mut">Todavía no registraste nada</div>'}</div>`},
 stkadj(){const R=stockOf(),r=R[sj.mat]||{vol:0,m3:0,n:'-'},m=D.mats[sj.mat];
 return `<div class="card" style="border-color:var(--ac)"><h3>🛠 Ajuste directo de stock (emergencia)</h3><div class="mut">Úsalo solo si llegó material o hubo una corrección que no pasó por el usuario de stock. Queda registrado con tu nombre y el motivo.</div>
 <label>Material</label><select onchange="sj.mat=this.selectedIndex;render()">${D.mats.map((x,i)=>`<option ${i==sj.mat?'selected':''}>${E(x.n)}</option>`).join('')}</select>
@@ -694,6 +694,44 @@ const n2=v=>(Math.round((+v||0)*100)/100).toLocaleString('es-PE');
 const eqm=u=>u=='Palas'?D.eq.pala:u=='Metros'?D.eq.metro:u=='Volquetes'?D.eq.volq:1;
 const m3v=x=>x.mod=='cubico'?x.q:x.q*D.eq.volq;
 function stockOf(){return D.mats.map(m=>{const ing=sum(D.stk.filter(r=>!r.anu&&r.mat==m.n),r=>(r.sg<0?-1:1)*r.m3),ven=sum(D.ventas.filter(v=>!v.anu&&v.mat==m.n),m3v),m3=Math.round((ing-ven)*100)/100,vol=m3/D.eq.volq,pos=Math.max(0,m3),val=pos>0?(m.pc>0?pos/D.eq.volq*m.pc:pos*(m.pq||0)):0;return{n:m.n,ing,ven,m3,vol,pal:m3/D.eq.pala,val}})}
+// ===== CÁLCULO APLICADO: derivadas e integrales del nivel de inventario =====
+// Se reconstruye la evolución de cada material con ingresos/ajustes (+) y ventas (-).
+// Derivada: variación del stock en m³ por día. Integral: inventario acumulado en m³·día,
+// aproximado con trapecios entre dos eventos consecutivos.
+function eventosMaterial(mat){
+ const L=[];
+ D.stk.filter(x=>!x.anu&&x.mat===mat).forEach(x=>L.push({id:x.id,f:x.f,h:x.h||'00:00:00',o:x._o||0,delta:(x.sg<0?-1:1)*(+x.m3||0),tipo:x.k==='ajuste'?'Ajuste de stock':'Ingreso de stock'}));
+ D.ventas.filter(x=>!x.anu&&x.mat===mat).forEach(x=>L.push({id:x.id,f:x.f,h:x.h||'00:00:00',o:x._o||0,delta:-m3v(x),tipo:'Venta'}));
+ return L.map(x=>({...x,ts:new Date(`${x.f}T${x.h}`).getTime()})).sort((a,b)=>a.ts-b.ts||a.o-b.o);
+}
+function calculoStock(x){
+ const L=eventosMaterial(x.mat),i=L.findIndex(e=>e.id===x.id);
+ if(i<0)return null;
+ let balance=0,prev=null,actual=null;
+ for(let k=0;k<=i;k++){
+  const e=L[k],antes=balance;balance=Math.round((balance+e.delta)*100)/100;
+  if(k===i){actual={...e,antes,despues:balance};prev=k?{...L[k-1],despues:Math.round((balance-e.delta)*100)/100}:null;}
+ }
+ if(!prev)return {primero:true,actual};
+ const dt=(actual.ts-prev.ts)/86400000;
+ if(!(dt>0))return {mismoTiempo:true,actual,prev,dt:0};
+ const derivada=(actual.despues-prev.despues)/dt;
+ const integral=((prev.despues+actual.despues)/2)*dt;
+ return {actual,prev,dt,derivada,integral};
+}
+function calculoHTML(x){
+ const c=calculoStock(x);if(!c)return '<div class="mut">No se pudo reconstruir este registro.</div>';
+ const f=n=>n2(n);
+ if(c.primero)return `<div class="mut">Este es el primer movimiento registrado de <b>${E(x.mat)}</b>. Todavía no existe un intervalo anterior para calcular la derivada. El inventario inicial después del movimiento es <b>${f(c.actual.despues)} m³</b>.</div><div><b>Integral:</b> no hay intervalo previo; acumulación calculable = 0 m³·día.</div>`;
+ const p=c.prev,a=c.actual;
+ const common=`<div><b>Registro analizado:</b> ${E(a.tipo)} · ${fd(a.f)} ${E(a.h)} · ${E(x.mat)}</div><div><b>Stock anterior:</b> ${f(p.despues)} m³</div><div><b>Movimiento actual:</b> ${a.delta>=0?'+':''}${f(a.delta)} m³</div><div><b>Stock actual:</b> ${f(a.despues)} m³</div><div><b>Tiempo transcurrido (Δt):</b> ${f(c.dt)} días</div>`;
+ if(c.mismoTiempo)return `<div class="mut">${common}Los dos eventos tienen la misma marca de tiempo. Δt = 0; la derivada por día no se puede dividir entre cero. La integral en este intervalo es 0 m³·día.</div>`;
+ return `${common}<div style="margin-top:8px"><b>1. DERIVADA — velocidad de cambio del inventario</b><div class="mut">Fórmula: dS/dt ≈ (S actual − S anterior) / Δt</div><div class="mn">(${f(a.despues)} − ${f(p.despues)}) / ${f(c.dt)} = <b class="${c.derivada<0?'red':'grn'}">${f(c.derivada)} m³/día</b></div><div class="mut">Interpretación: ${c.derivada>0?'el inventario aumentó':c.derivada<0?'el inventario disminuyó':'el inventario se mantuvo'} a esta velocidad promedio durante el intervalo.</div></div><div style="margin-top:10px"><b>2. INTEGRAL — inventario acumulado en el tiempo</b><div class="mut">Método del trapecio: ∫ S(t) dt ≈ [(S anterior + S actual) / 2] × Δt</div><div class="mn">[(${f(p.despues)} + ${f(a.despues)}) / 2] × ${f(c.dt)} = <b class="org">${f(c.integral)} m³·día</b></div><div class="mut">Representa el inventario acumulado durante el intervalo; no es dinero ni una cantidad adicional de stock.</div></div>`;
+}
+function toggleCalculo(id){const e=document.getElementById('calc_'+id);if(e)e.style.display=e.style.display==='none'?'table-row':'none'}
+function botonCalculo(x){return x.anu?'':`<button class="sm" type="button" onclick="toggleCalculo('${x.id}')">∫ / d/dt Ver cálculo</button>`}
+function filaCalculo(x,cols){return `<tr id="calc_${x.id}" style="display:none"><td colspan="${cols}" style="background:var(--card2);padding:12px;line-height:1.7">${calculoHTML(x)}</td></tr>`}
+
 let cobCli=null,cobq='',sk={mat:0,u:'Volquetes',q:''},sj={mat:0,u:'Volquetes',q:'',sg:1,mot:''},us={rol:'stock',rn:'',nom:'',u:'',p:'',perms:['stkreg'],ap:'',nuevo:null},ue=null;
 const bo0=()=>({ok:0,cam:0,p:'',pb:'',mes:'',sel:[],na:'',nb:''});let bo=bo0();
 const skpv=()=>{const q=+sk.q||0;return q>0?`${n2(q)} ${sk.u.toLowerCase()} = <b>${n2(q*eqm(sk.u))} m³</b>`:'Escribe la cantidad'};
