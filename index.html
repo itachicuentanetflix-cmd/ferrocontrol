@@ -93,6 +93,13 @@ button.pri{background:linear-gradient(90deg,var(--ac),#fb923c)}
 .cc.late{border-left-color:var(--bad)}.cc .nm{font-size:16px}
 .cc:hover{transform:translateX(3px)}
 @media(max-width:899px){header{flex-wrap:wrap}.hinfo{order:9;flex-basis:100%}}
+
+#calcGlobal{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:120;display:none;align-items:center;justify-content:center;padding:12px}
+#calcGlobal .calcGlobalBox{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;width:100%;max-width:760px;max-height:92vh;overflow:auto;box-shadow:0 12px 45px #0008}
+#calcGlobal .calcGlobalBox h3{margin:0}
+#calcGlobal .calcGlobalBox .mut{margin:4px 0}
+.btn-calculo,.btn-calculo-card{border-color:var(--ac);color:var(--ac);font-weight:700}
+
 </style>
 <script>try{document.documentElement.dataset.t=localStorage.getItem('fct')||'dark'}catch(e){document.documentElement.dataset.t='dark'}</script>
 </head>
@@ -178,11 +185,102 @@ const GR=[[null,[['inicio','🏠','Inicio']]],['Ventas',[['venta','🛒','Nueva 
 const TL=Object.fromEntries(GR.flatMap(([,l])=>l).map(([k,i,n])=>[k,[i,n]]));
 const menu=o=>{$('#side').classList.toggle('open',!!o);$('#ov').classList.toggle('open',!!o)};
 const go=k=>{if(k=='cob'&&!cb)cobCli=null;if(k!='bor')bo=bo0();tab=k;menu(0);render();scrollTo(0,0)};
+
+/* ===== CALCULO GLOBAL: derivadas e integrales en todas las secciones ===== */
+function calcNumTexto(s){
+ const t=String(s||'').replace(/\s/g,'').replace(/S\/|m³|m3|h|%/gi,'').replace(/,/g,'');
+ const m=t.match(/-?\d+(?:\.\d+)?/); return m?Number(m[0]):null;
+}
+function calcFechaFila(tr){
+ const c=tr&&tr.cells&&tr.cells[0]?tr.cells[0].textContent.trim():'';
+ let m=c.match(/(\d{4})-(\d{2})-(\d{2})/);
+ if(m)return new Date(+m[1],+m[2]-1,+m[3]).getTime();
+ m=c.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+ if(m)return new Date(+m[3],+m[2]-1,+m[1]).getTime();
+ return null;
+}
+function calcPrevFila(tr){
+ let p=tr?tr.previousElementSibling:null;
+ while(p&&(!p.cells||p.style.display==='none'||p.id&&p.id.startsWith('calc_')))p=p.previousElementSibling;
+ return p&&p.cells?p:null;
+}
+function calcUnidad(label){
+ const s=String(label||'').toLowerCase();
+ if(/sol|importe|total|costo|monto|saldo|cobrad|vendid|gasto|sueldo|pago|utilidad/.test(s))return 'S/';
+ if(/hora|tiempo|duraci/.test(s))return 'horas';
+ if(/camion/.test(s))return 'camiones';
+ if(/m³|m3|cúb|cub/.test(s))return 'm³';
+ if(/stock|cantidad|material|volumen/.test(s))return 'unidades';
+ return 'unidades';
+}
+function calcDetalleCelda(label,actual,anterior,dt,unidad){
+ const f=n=>Number(n).toLocaleString('es-PE',{maximumFractionDigits:4});
+ if(anterior===null||dt===null||!(dt>0)){
+  return `<div class="card" style="margin:8px 0;padding:10px"><b>${E(label)}: ${f(actual)} ${unidad}</b><div style="margin-top:6px"><b>Derivada</b><div class="mut">Fórmula: f'(t) ≈ [f(t₂) − f(t₁)] / (t₂ − t₁)</div><div>No hay un registro anterior comparable con fecha válida. Se necesita otra medición de este mismo dato para sustituir y resolver la derivada.</div></div><div style="margin-top:8px"><b>Integral</b><div class="mut">Fórmula: ∫ f(t) dt ≈ [(f(t₁) + f(t₂)) / 2] × Δt</div><div>No se calcula un área real sin dos mediciones y su intervalo de tiempo. No se inventa un resultado.</div></div></div>`;
+ }
+ const der=(actual-anterior)/dt, integ=((actual+anterior)/2)*dt;
+ return `<div class="card" style="margin:8px 0;padding:10px"><b>${E(label)}</b><div class="mut">Dato anterior = ${f(anterior)} ${unidad} · Dato actual = ${f(actual)} ${unidad} · Δt = ${f(dt)} días</div><div style="margin-top:7px"><b>1. Derivada — cambio promedio por día</b><div class="mut">Fórmula: f'(t) ≈ (valor actual − valor anterior) / Δt</div><div>Reemplazo: (${f(actual)} − ${f(anterior)}) / ${f(dt)}</div><div><b>Resolución: ${f(der)} ${unidad}/día</b></div><div class="mut">Interpretación: ${der>0?'el valor aumenta':der<0?'el valor disminuye':'el valor permanece igual'} por día, en promedio.</div></div><div style="margin-top:9px"><b>2. Integral — acumulación aproximada</b><div class="mut">Fórmula (trapecio): ∫ f(t)dt ≈ [(valor anterior + valor actual) / 2] × Δt</div><div>Reemplazo: [(${f(anterior)} + ${f(actual)}) / 2] × ${f(dt)}</div><div><b>Resolución: ${f(integ)} ${unidad}·día</b></div><div class="mut">Representa el área/acumulación de esa magnitud durante el intervalo.</div></div></div>`;
+}
+function calcAbrirDesdeBoton(btn){
+ const card=btn.closest('.card'),kpi=btn.closest('.kp div'),tr=btn.closest('tr');
+ let titulo='Cálculo del registro',html='';
+ if(tr){
+  const tabla=tr.closest('table'),ths=[...(tabla.querySelectorAll('thead th, tr:first-child th'))],prev=calcPrevFila(tr),f1=calcFechaFila(prev),f2=calcFechaFila(tr),dt=f1&&f2?(f2-f1)/86400000:null;
+  const celdas=[...tr.cells];
+  celdas.forEach((td,i)=>{
+   if(i===0||i===celdas.length-1)return;
+   const a=calcNumTexto(td.textContent);if(a===null)return;
+   const p=prev&&prev.cells[i]?calcNumTexto(prev.cells[i].textContent):null;
+   const label=ths[i]?ths[i].textContent.trim():`Dato ${i+1}`;
+   html+=calcDetalleCelda(label,a,p,dt,calcUnidad(label));
+  });
+  titulo='Cálculo del registro · '+(tr.cells[0]?.textContent.trim()||'');
+  if(!html)html='<p>Esta fila no contiene valores numéricos que puedan analizarse.</p>';
+ }else if(kpi){
+  const label=kpi.querySelector('small')?.textContent||'Indicador';
+  const val=calcNumTexto(kpi.querySelector('b')?.textContent||kpi.textContent);
+  titulo='Cálculo del indicador · '+label;
+  html=val===null?'<p>No hay un valor numérico para analizar.</p>':calcDetalleCelda(label,val,null,null,calcUnidad(label));
+ }else if(card){
+  titulo='Cálculo de la sección';
+  const campos=[...card.querySelectorAll('input:not([type=hidden]),select')].filter(e=>e.value!==''&&calcNumTexto(e.value)!==null);
+  const datos=campos.map(e=>({label:e.id||e.getAttribute('aria-label')||e.previousElementSibling?.textContent||'Dato ingresado',value:calcNumTexto(e.value)}));
+  html=datos.length?datos.map(x=>`<div class="card" style="padding:10px;margin:7px 0"><b>${E(x.label)}: ${x.value}</b>${calcDetalleCelda(x.label,x.value,null,null,calcUnidad(x.label))}</div>`).join(''):'<p>Esta sección no tiene dos registros numéricos comparables todavía. Las operaciones se muestran como método y se habilitarán con mediciones históricas.</p>';
+ }else{
+  html='<p>Selecciona un registro, indicador o sección para ver su cálculo.</p>';
+ }
+ let modal=document.getElementById('calcGlobal');
+ if(!modal){modal=document.createElement('div');modal.id='calcGlobal';modal.innerHTML='<div class="calcGlobalBox"><div class="row" style="align-items:center"><h3 id="calcGlobalTitle" style="flex:1">Cálculo</h3><button type="button" onclick="document.getElementById(\'calcGlobal\').style.display=\'none\'">Cerrar ✕</button></div><div id="calcGlobalBody"></div></div>';document.body.appendChild(modal)}
+ modal.querySelector('#calcGlobalTitle').textContent=titulo;
+ modal.querySelector('#calcGlobalBody').innerHTML=html;
+ modal.style.display='flex';
+}
+function ponerBotonesCalculo(){
+ const root=document.getElementById('v');if(!root)return;
+ // Un botón en cada indicador numérico del tablero.
+ root.querySelectorAll('.kp div').forEach(el=>{
+  if(el.querySelector('.btn-calculo'))return;
+  const b=document.createElement('button');b.type='button';b.className='sm btn-calculo';b.textContent='Cálculo';b.style.marginTop='7px';b.onclick=()=>calcAbrirDesdeBoton(b);el.appendChild(b);
+ });
+ // Un botón en cada fila de datos de todas las tablas de cada módulo.
+ root.querySelectorAll('table tr').forEach(tr=>{
+  if(!tr.cells||tr.querySelector('.btn-calculo')||tr.querySelector('button[onclick*="toggleCalculo"]')||tr.id&&tr.id.startsWith('calc_'))return;
+  const cells=[...tr.cells];if(!cells.length||tr.querySelector('th'))return;
+  const td=cells[cells.length-1];if(!td)return;
+  const b=document.createElement('button');b.type='button';b.className='sm btn-calculo';b.textContent='Cálculo';b.onclick=()=>calcAbrirDesdeBoton(b);td.appendChild(document.createTextNode(' '));td.appendChild(b);
+ });
+ // Un botón en cada tarjeta de formularios, resúmenes y paneles.
+ root.querySelectorAll('.card').forEach(card=>{
+  if(card.querySelector('.btn-calculo-card'))return;
+  const b=document.createElement('button');b.type='button';b.className='sm btn-calculo-card';b.textContent='Cálculo';b.style.marginTop='10px';b.onclick=()=>calcAbrirDesdeBoton(b);card.appendChild(b);
+ });
+}
+
 function render(){$('#nav').innerHTML=GRv().map(([g,l])=>(g?`<div class="gt">${g}</div>`:'')+l.map(([k,i,n])=>`<button class="ni ${k==tab?'on':''}" onclick="go('${k}')"><span>${i}</span>${n}</button>`).join('')).join('');
  $('#bb').innerHTML=[['inicio','🏠','Inicio'],['venta','🛒','Venta'],['alq','🚜','Alquiler'],['cob','💰','Cobrar'],['stkreg','✍️','Stock']].filter(([k])=>can(k)).slice(0,4).map(([k,i,n])=>`<button class="bi ${k==tab?'on':''}" onclick="go('${k}')"><span>${i}</span>${n}</button>`).join('')+`<button class="bi" onclick="menu(1)"><span>☰</span>Menú</button>`;
  $('#br').textContent=D.emp||'FINCA CHATE';$('#pt').textContent=TL[tab][0]+' '+TL[tab][1];
  reloj();thmI();hinfo();$('#mes').style.display=can('inicio')?'':'none';$('#mes').value=MES;$('#v').innerHTML=(MES!=MESACT()?`<div class="card" style="border-color:var(--ac)">📅 Estás viendo <b>${mesN()}</b>. Lo que registres ahora se guarda en <b>el mes actual</b>. <button class="sm" style="margin-left:6px" onclick="setMes(MESACT())">Ir al mes actual</button></div>`:'')+(can(tab)?V[tab]():'<div class="card">No tienes permiso para esta sección.</div>');
- if(tab=='rep')rep();if(tab=='asis'&&av=='hoy')D.asis.filter(a=>a.f==HOY).forEach(a=>calc(a.id))}
+ if(tab=='rep')rep();ponerBotonesCalculo();if(tab=='asis'&&av=='hoy')D.asis.filter(a=>a.f==HOY).forEach(a=>calc(a.id))}
 const rec=()=>{const L=[];TIPOS.forEach(t=>D[t].forEach(x=>{if(x.f.startsWith(MES))L.push([t,x])}));return L.sort((a,b)=>b[1]._o-a[1]._o).slice(0,8)};
 const dsc=(t,x)=>({ventas:`Venta · ${x.mat} · ${cant(x)} · ${S(x.tot)}`,alq:`Alquiler · ${x.maq} · ${x.hr} h · ${S(x.tot)}`,abo:`Cobro · ${x.cli} · ${S(x.mon)}`,gas:`Petróleo · ${x.m} · ${S(x.mon)}`,mant:`Mantenimiento · ${x.m} · ${x.t} · ${S(x.mon)}`,poli:`Policía · ${x.con} · ${S(x.mon)}`,com:`${x.t} · ${x.c} · ${S(x.mon)}`,asis:`Asistencia · ${x.c} · entró ${x.e}`,pagos:`Pago ${x.t} · ${x.c} · ${S(x.mon)}`,fac:`Factura ${fnum(x)} · ${S(x.tot)}`,caja:`Caja · ${x.mot} · ${x.cta} · ${x.sg>0?'+':'−'}${S(x.mon)}`,stk:`Stock · ${x.mat} · ${x.sg<0?'−':'+'}${x.q} ${x.u} · ${x.by}`}[t]);
 const cls=()=>[...new Set([...D.ventas,...D.alq].map(x=>x.cli).filter(Boolean))];
@@ -729,7 +827,7 @@ function calculoHTML(x){
  return `${common}<div style="margin-top:8px"><b>1. DERIVADA — velocidad de cambio del inventario</b><div class="mut">Fórmula: dS/dt ≈ (S actual − S anterior) / Δt</div><div class="mn">(${f(a.despues)} − ${f(p.despues)}) / ${f(c.dt)} = <b class="${c.derivada<0?'red':'grn'}">${f(c.derivada)} m³/día</b></div><div class="mut">Interpretación: ${c.derivada>0?'el inventario aumentó':c.derivada<0?'el inventario disminuyó':'el inventario se mantuvo'} a esta velocidad promedio durante el intervalo.</div></div><div style="margin-top:10px"><b>2. INTEGRAL — inventario acumulado en el tiempo</b><div class="mut">Método del trapecio: ∫ S(t) dt ≈ [(S anterior + S actual) / 2] × Δt</div><div class="mn">[(${f(p.despues)} + ${f(a.despues)}) / 2] × ${f(c.dt)} = <b class="org">${f(c.integral)} m³·día</b></div><div class="mut">Representa el inventario acumulado durante el intervalo; no es dinero ni una cantidad adicional de stock.</div></div>`;
 }
 function toggleCalculo(id){const e=document.getElementById('calc_'+id);if(e)e.style.display=e.style.display==='none'?'table-row':'none'}
-function botonCalculo(x){return x.anu?'':`<button class="sm" type="button" onclick="toggleCalculo('${x.id}')">∫ / d/dt Ver cálculo</button>`}
+function botonCalculo(x){return x.anu?'':`<button class="sm" type="button" onclick="toggleCalculo('${x.id}')">Cálculo</button>`}
 function filaCalculo(x,cols){return `<tr id="calc_${x.id}" style="display:none"><td colspan="${cols}" style="background:var(--card2);padding:12px;line-height:1.7">${calculoHTML(x)}</td></tr>`}
 
 let cobCli=null,cobq='',sk={mat:0,u:'Volquetes',q:''},sj={mat:0,u:'Volquetes',q:'',sg:1,mot:''},us={rol:'stock',rn:'',nom:'',u:'',p:'',perms:['stkreg'],ap:'',nuevo:null},ue=null;
